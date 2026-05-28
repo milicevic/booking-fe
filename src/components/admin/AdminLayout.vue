@@ -26,7 +26,7 @@ const navItems = [
     <nav class="bg-white border-b border-gray-100 px-4 py-3">
       <div class="max-w-5xl mx-auto flex items-center justify-between">
         <span class="font-semibold text-gray-900">
-          {{ auth.client?.business_name ?? auth.client?.name }}
+          {{ auth.client?.name }}
         </span>
         <button
           @click="handleLogout"

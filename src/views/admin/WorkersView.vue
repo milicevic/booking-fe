@@ -51,11 +51,6 @@ async function handleCreate() {
   }
 }
 
-async function handleToggle(worker: Worker) {
-  await adminApi.updateWorker(worker.id, { is_active: !worker.is_active })
-  await fetchWorkers()
-}
-
 async function handleDelete(worker: Worker) {
   if (!confirm(`Obrisati radnika ${worker.name}?`)) return
   await adminApi.deleteWorker(worker.id)
@@ -131,20 +126,11 @@ async function handleDelete(worker: Worker) {
           </div>
           <div>
             <p class="text-sm font-medium text-gray-900">{{ worker.name }}</p>
-            <p class="text-xs text-gray-400">{{ worker.email ?? worker.phone ?? '—' }}</p>
+            <p class="text-xs text-gray-400">{{ worker.email ?? worker.worker_profile?.phone ?? '—' }}</p>
           </div>
         </div>
 
         <div class="flex items-center gap-2">
-          <button
-            @click="handleToggle(worker)"
-            :class="worker.is_active
-              ? 'bg-green-100 text-green-700'
-              : 'bg-gray-100 text-gray-500'"
-            class="text-xs font-medium px-2.5 py-1 rounded-full transition-colors"
-          >
-            {{ worker.is_active ? 'Aktivan' : 'Neaktivan' }}
-          </button>
           <button
             @click="handleDelete(worker)"
             class="text-gray-300 hover:text-red-400 transition-colors text-lg leading-none"

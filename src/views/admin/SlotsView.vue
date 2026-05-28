@@ -35,7 +35,7 @@ async function fetchSlots() {
 
 async function fetchWorkers() {
   const { data } = await adminApi.getWorkers()
-  workers.value = data.filter(w => w.is_active)
+  workers.value = data
 }
 
 async function handleCreate() {

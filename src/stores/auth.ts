@@ -2,11 +2,18 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '@/api/axios'
 
+interface ClientProfile {
+  id: number
+  auto_confirm_bookings: boolean
+}
+
 interface Client {
   id: number
   name: string
   email: string
-  business_name: string | null
+  role: string
+  can_edit_slots: boolean
+  client_profile: ClientProfile | null
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -40,8 +47,17 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function fetchMe() {
     if (!token.value) return
-    const { data } = await api.get('/api/auth/me')
-    client.value = data
+    try {
+      const { data } = await api.get('/api/auth/me')
+      client.value = data
+    } catch (e: any) {
+      if (e.response?.status === 401) {
+        token.value = null
+        client.value = null
+        localStorage.removeItem('token')
+        delete api.defaults.headers.common['Authorization']
+      }
+    }
   }
 
   return { client, token, isLoggedIn, login, logout, fetchMe }
