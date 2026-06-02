@@ -2,7 +2,9 @@
 import { ref, computed, onMounted } from 'vue'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { adminApi } from '@/api/admin'
+import { tenantApi } from '@/api/tenant'
 import { useAuthStore } from '@/stores/auth'
+import { useTenantStore } from '@/stores/tenant'
 import type { Worker, AdminClient } from '@/api/admin'
 import type { Slot } from '@/api/booking'
 
@@ -62,6 +64,36 @@ async function loadClientDashboard(clientId: number) {
     workers.value = wRes.data
   } finally {
     loading.value = false
+  }
+}
+
+// ─── Deploy zahtev ────────────────────────────────────────────────────────────
+const tenantStore = useTenantStore()
+const showDeployModal = ref(false)
+const deployForm = ref({ subdomain: '', custom_domain: '' })
+const deployLoading = ref(false)
+const deployError = ref('')
+const deploySuccess = ref('')
+
+async function handleDeployRequest() {
+  deployError.value = ''
+  const payload = deployForm.value.custom_domain
+    ? { custom_domain: deployForm.value.custom_domain }
+    : { subdomain: deployForm.value.subdomain }
+  if (!payload.subdomain && !payload.custom_domain) {
+    deployError.value = 'Unesite subdomenu ili custom domenu'
+    return
+  }
+  deployLoading.value = true
+  try {
+    await tenantApi.requestDeploy(payload)
+    deploySuccess.value = 'Zahtev je poslat! Administrator će ga obraditi.'
+    showDeployModal.value = false
+    await tenantStore.fetchConfig()
+  } catch (e: any) {
+    deployError.value = e.response?.data?.message ?? 'Greška pri slanju zahteva'
+  } finally {
+    deployLoading.value = false
   }
 }
 
@@ -614,6 +646,85 @@ function formatTime(t: string) {
             :class="autoConfirm ? 'translate-x-5' : 'translate-x-0'"
             class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
           />
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Deploy sekcija ──────────────────────────────────────────── -->
+    <div
+      v-if="tenantStore.config && !['active', 'trialing'].includes(tenantStore.config.subscription_status) === false && tenantStore.config.subscription_status !== 'pending_deploy'"
+      class="hidden"
+    />
+    <div
+      v-if="tenantStore.config?.subscription_status === 'pending_deploy'"
+      class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-center gap-3"
+    >
+      <div class="w-2 h-2 bg-blue-400 rounded-full animate-pulse shrink-0" />
+      <p class="text-sm text-blue-700">Deploy zahtev je na čekanju — administrator obrađuje vaš zahtev.</p>
+    </div>
+    <div v-else-if="tenantStore.config && ['trialing', 'active'].includes(tenantStore.config.subscription_status)" class="mb-6">
+      <div v-if="deploySuccess" class="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
+        <p class="text-sm text-green-700">{{ deploySuccess }}</p>
+      </div>
+      <div v-else-if="!showDeployModal" class="bg-white border border-gray-100 rounded-xl p-4 flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-900">Objavite svoju booking stranicu</p>
+          <p class="text-xs text-gray-400 mt-0.5">Pošaljite zahtev za deploy na vašu subdomenu ili custom domenu</p>
+        </div>
+        <button
+          @click="showDeployModal = true"
+          class="text-sm font-medium px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shrink-0 ml-4"
+        >
+          Deploy
+        </button>
+      </div>
+
+      <!-- Deploy modal inline -->
+      <div v-else class="bg-white border border-indigo-200 rounded-xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-gray-900">Zahtev za deploy</h3>
+          <button @click="showDeployModal = false; deployError = ''" class="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1.5">Subdomena</label>
+          <div class="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+            <input
+              v-model="deployForm.subdomain"
+              type="text"
+              placeholder="moj-salon"
+              :disabled="!!deployForm.custom_domain"
+              class="flex-1 px-3 py-2.5 text-sm focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+            />
+            <span class="px-3 py-2.5 bg-gray-50 text-gray-400 text-xs border-l border-gray-200">.booking.app</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <div class="flex-1 h-px bg-gray-200" />
+          <span class="text-xs text-gray-400">ili</span>
+          <div class="flex-1 h-px bg-gray-200" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1.5">Custom domena</label>
+          <input
+            v-model="deployForm.custom_domain"
+            type="text"
+            placeholder="rezervacije.moj-salon.com"
+            :disabled="!!deployForm.subdomain"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+          />
+        </div>
+
+        <p v-if="deployError" class="text-red-500 text-xs">{{ deployError }}</p>
+
+        <button
+          @click="handleDeployRequest"
+          :disabled="deployLoading"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
+        >
+          {{ deployLoading ? 'Slanje...' : 'Pošalji zahtev' }}
         </button>
       </div>
     </div>

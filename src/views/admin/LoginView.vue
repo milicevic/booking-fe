@@ -70,6 +70,13 @@ async function handleLogin() {
           {{ loading ? 'Prijava...' : 'Prijavi se' }}
         </button>
       </form>
+
+      <p class="text-center text-xs text-gray-400 mt-6">
+        Nemate nalog?
+        <router-link :to="{ name: 'register' }" class="text-indigo-600 hover:text-indigo-800">
+          Registrujte se besplatno
+        </router-link>
+      </p>
     </div>
   </div>
 </template>

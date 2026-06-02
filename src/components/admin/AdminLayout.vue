@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useTenantStore } from '@/stores/tenant'
+import SubscriptionBanner from '@/components/SubscriptionBanner.vue'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const tenant = useTenantStore()
 
 async function handleLogout() {
   await auth.logout()
@@ -22,12 +25,16 @@ const navItems = [
 <template>
   <div class="min-h-screen bg-gray-50">
 
+    <!-- Subscription banner -->
+    <SubscriptionBanner />
+
     <!-- Top nav -->
     <nav class="bg-white border-b border-gray-100 px-4 py-3">
       <div class="max-w-5xl mx-auto flex items-center justify-between">
-        <span class="font-semibold text-gray-900">
-          {{ auth.client?.name }}
-        </span>
+        <div class="flex items-center gap-2.5">
+          <img v-if="tenant.logoUrl" :src="tenant.logoUrl" alt="logo" class="h-6 w-auto" />
+          <span class="font-semibold text-gray-900">{{ tenant.appName }}</span>
+        </div>
         <button
           @click="handleLogout"
           class="text-sm text-gray-500 hover:text-gray-700"

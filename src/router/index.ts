@@ -21,6 +21,18 @@ const router = createRouter({
       component: () => import('@/views/booking/ManageView.vue'),
     },
 
+    // Auth rute
+    {
+      path: '/register',
+      name: 'register',
+      component: () => import('@/views/auth/RegisterView.vue'),
+    },
+    {
+      path: '/invite/:token',
+      name: 'worker-invite',
+      component: () => import('@/views/auth/WorkerInviteView.vue'),
+    },
+
     // Admin rute
     {
       path: '/admin/login',

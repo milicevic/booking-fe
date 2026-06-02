@@ -60,5 +60,12 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { client, token, isLoggedIn, login, logout, fetchMe }
+  function setSession(newToken: string, newClient: Client) {
+    token.value = newToken
+    client.value = newClient
+    localStorage.setItem('token', newToken)
+    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`
+  }
+
+  return { client, token, isLoggedIn, login, logout, fetchMe, setSession }
 })
