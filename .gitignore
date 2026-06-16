@@ -38,6 +38,9 @@ __screenshots__/
 # Vite
 *.timestamp-*-*.mjs
 
+# Local SSL certs
+.cert/
+
 test-results/
 playwright-report/
 playwright/.cache/
