@@ -27,6 +27,18 @@ onMounted(async () => {
   }
 })
 
+function bookingStatusLabel(status: string) {
+  if (status === 'confirmed') return t('manage.statusActive')
+  if (status === 'cancelled') return t('manage.statusCancelled')
+  return t('manage.statusPending')
+}
+
+function bookingStatusClass(status: string) {
+  if (status === 'confirmed') return 'bg-green-100 text-green-700'
+  if (status === 'cancelled') return 'bg-red-100 text-red-700'
+  return 'bg-yellow-100 text-yellow-700'
+}
+
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString(jsLocale.value, {
     weekday: 'long',
@@ -64,12 +76,10 @@ async function handleCancel() {
         <div class="flex items-center justify-between mb-6">
           <h1 class="text-xl font-semibold text-gray-900">{{ t('manage.title') }}</h1>
           <span
-            :class="booking.status === 'confirmed'
-              ? 'bg-green-100 text-green-700'
-              : 'bg-red-100 text-red-700'"
+            :class="bookingStatusClass(booking.status)"
             class="text-xs font-medium px-3 py-1 rounded-full"
           >
-            {{ booking.status === 'confirmed' ? t('manage.statusActive') : t('manage.statusCancelled') }}
+            {{ bookingStatusLabel(booking.status) }}
           </span>
         </div>
 

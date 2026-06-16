@@ -73,6 +73,7 @@ export default {
   manage: {
     title: 'Vaša rezervacija',
     statusActive: 'Aktivna',
+    statusPending: 'Na čekanju',
     statusCancelled: 'Otkazana',
     name: 'Ime',
     worker: 'Radnik',
@@ -241,8 +242,10 @@ export default {
     title: 'Rezervacije',
     filterAll: 'Sve',
     filterActive: 'Aktivne',
+    filterPending: 'Na čekanju',
     filterCancelled: 'Otkazane',
     statusActive: 'Aktivna',
+    statusPending: 'Na čekanju',
     statusCancelled: 'Otkazana',
     cancelBtn: 'Otkaži rezervaciju',
     cancelConfirm: 'Otkazati rezervaciju za {name}?',

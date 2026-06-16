@@ -73,6 +73,7 @@ export default {
   manage: {
     title: 'Your booking',
     statusActive: 'Active',
+    statusPending: 'Pending',
     statusCancelled: 'Cancelled',
     name: 'Name',
     worker: 'Worker',
@@ -241,8 +242,10 @@ export default {
     title: 'Bookings',
     filterAll: 'All',
     filterActive: 'Active',
+    filterPending: 'Pending',
     filterCancelled: 'Cancelled',
     statusActive: 'Active',
+    statusPending: 'Pending',
     statusCancelled: 'Cancelled',
     cancelBtn: 'Cancel booking',
     cancelConfirm: 'Cancel booking for {name}?',

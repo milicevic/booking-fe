@@ -10,7 +10,7 @@ const { t, locale } = useI18n()
 const adminContext = useAdminContextStore()
 const bookings = ref<Booking[]>([])
 const loading = ref(true)
-const filter = ref<'all' | 'confirmed' | 'cancelled'>('all')
+const filter = ref<'all' | 'confirmed' | 'pending' | 'cancelled'>('all')
 
 onMounted(async () => {
   await fetchBookings()
@@ -30,6 +30,18 @@ async function handleCancel(booking: Booking) {
   if (!confirm(t('bookingsView.cancelConfirm', { name: booking.customer_name }))) return
   await adminApi.cancelBooking(booking.token)
   await fetchBookings()
+}
+
+function bookingStatusLabel(status: string) {
+  if (status === 'confirmed') return t('bookingsView.statusActive')
+  if (status === 'cancelled') return t('bookingsView.statusCancelled')
+  return t('bookingsView.statusPending')
+}
+
+function bookingStatusClass(status: string) {
+  if (status === 'confirmed') return 'bg-green-100 text-green-700'
+  if (status === 'cancelled') return 'bg-red-100 text-red-700'
+  return 'bg-yellow-100 text-yellow-700'
 }
 
 const filtered = computed(() => {
@@ -52,7 +64,7 @@ function formatDate(date: string) {
 
     <div class="flex gap-2 mb-6">
       <button
-        v-for="f in ['all', 'confirmed', 'cancelled']"
+        v-for="f in ['all', 'confirmed', 'pending', 'cancelled']"
         :key="f"
         @click="filter = f as any"
         :class="filter === f
@@ -60,7 +72,7 @@ function formatDate(date: string) {
           : 'bg-white text-gray-500 border border-gray-200'"
         class="text-sm font-medium px-4 py-2 rounded-lg transition-colors"
       >
-        {{ f === 'all' ? t('bookingsView.filterAll') : f === 'confirmed' ? t('bookingsView.filterActive') : t('bookingsView.filterCancelled') }}
+        {{ f === 'all' ? t('bookingsView.filterAll') : f === 'confirmed' ? t('bookingsView.filterActive') : f === 'pending' ? t('bookingsView.filterPending') : t('bookingsView.filterCancelled') }}
       </button>
     </div>
 
@@ -80,12 +92,10 @@ function formatDate(date: string) {
             </p>
           </div>
           <span
-            :class="booking.status === 'confirmed'
-              ? 'bg-green-100 text-green-700'
-              : 'bg-red-100 text-red-700'"
+            :class="bookingStatusClass(booking.status)"
             class="text-xs font-medium px-2.5 py-1 rounded-full shrink-0"
           >
-            {{ booking.status === 'confirmed' ? t('bookingsView.statusActive') : t('bookingsView.statusCancelled') }}
+            {{ bookingStatusLabel(booking.status) }}
           </span>
         </div>
 
