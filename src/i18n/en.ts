@@ -86,6 +86,7 @@ export default {
     cancelled: 'Booking has been cancelled.',
     cancelError: 'Error cancelling booking',
     notFound: 'Booking not found',
+    backHome: 'Back to homepage',
   },
 
   auth: {

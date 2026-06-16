@@ -86,6 +86,7 @@ export default {
     cancelled: 'Rezervacija je otkazana.',
     cancelError: 'Greška pri otkazivanju',
     notFound: 'Rezervacija nije pronađena',
+    backHome: 'Nazad na početnu',
   },
 
   auth: {

@@ -120,6 +120,14 @@ async function handleCancel() {
         >
           {{ cancelling ? t('manage.cancelling') : t('manage.cancelBtn') }}
         </button>
+
+        <button
+          v-if="booking.status === 'cancelled'"
+          @click="router.push({ name: 'booking' })"
+          class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2.5 rounded-xl transition-colors"
+        >
+          {{ t('manage.backHome') }}
+        </button>
       </template>
     </div>
   </div>
