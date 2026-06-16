@@ -238,6 +238,16 @@ export default {
     timeRequired: 'Unesite vreme',
   },
 
+  notifications: {
+    title: 'Obaveštenja',
+    markAllRead: 'Označi sve kao pročitano',
+    empty: 'Nema obaveštenja',
+    booking_pending: 'Nova rezervacija od {name}',
+    booking_confirmed: 'Rezervacija potvrđena za {name}',
+    at: 'u',
+    with: 'sa',
+  },
+
   bookingsView: {
     title: 'Rezervacije',
     filterAll: 'Sve',

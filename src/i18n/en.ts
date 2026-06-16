@@ -238,6 +238,16 @@ export default {
     timeRequired: 'Enter time',
   },
 
+  notifications: {
+    title: 'Notifications',
+    markAllRead: 'Mark all as read',
+    empty: 'No notifications',
+    booking_pending: 'New booking request from {name}',
+    booking_confirmed: 'Booking confirmed for {name}',
+    at: 'at',
+    with: 'with',
+  },
+
   bookingsView: {
     title: 'Bookings',
     filterAll: 'All',

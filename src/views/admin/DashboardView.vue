@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
+import NotificationList from '@/components/NotificationList.vue'
 import { adminApi } from '@/api/admin'
 import { tenantApi } from '@/api/tenant'
 import { useAuthStore } from '@/stores/auth'
@@ -559,6 +560,8 @@ function formatTime(t: string) {
     <template v-else-if="isWorker">
       <h1 class="text-xl font-semibold text-gray-900 mb-6">{{ t('dashboard.worker.welcome', { name: auth.client?.name }) }}</h1>
 
+      <NotificationList />
+
       <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>
 
       <template v-else>
@@ -627,6 +630,8 @@ function formatTime(t: string) {
 
     <!-- ── Client dashboard ───────────────────────────────────────────── -->
     <template v-else>
+    <NotificationList />
+
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-xl font-semibold text-gray-900">{{ t('dashboard.title') }}</h1>
 
