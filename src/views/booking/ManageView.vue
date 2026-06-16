@@ -111,7 +111,7 @@ async function handleCancel() {
         <div v-if="error" class="text-red-500 text-sm text-center mb-4">{{ error }}</div>
 
         <button
-          v-if="booking.status === 'confirmed'"
+          v-if="booking.status !== 'cancelled'"
           @click="handleCancel"
           :disabled="cancelling"
           class="w-full border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-50 text-sm font-medium py-2.5 rounded-xl transition-colors"
