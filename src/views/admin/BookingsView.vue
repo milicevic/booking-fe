@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useConfirm } from '@/composables/useConfirm'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { adminApi } from '@/api/admin'
 import { useAdminContextStore } from '@/stores/adminContext'
 import type { Booking } from '@/api/booking'
 
 const { t, locale } = useI18n()
+const { confirm } = useConfirm()
 const adminContext = useAdminContextStore()
 const bookings = ref<Booking[]>([])
 const loading = ref(true)
@@ -27,7 +29,7 @@ async function fetchBookings() {
 }
 
 async function handleCancel(booking: Booking) {
-  if (!confirm(t('bookingsView.cancelConfirm', { name: booking.customer_name }))) return
+  if (!await confirm(t('bookingsView.cancelConfirm', { name: booking.customer_name }))) return
   await adminApi.cancelBooking(booking.token)
   await fetchBookings()
 }

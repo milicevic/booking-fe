@@ -3,6 +3,7 @@ export default {
     loading: 'Loading...',
     save: 'Save',
     cancel: 'Cancel',
+    confirm: 'Confirm',
     error: 'Error',
     optional: 'optional',
     or: 'or',

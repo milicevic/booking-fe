@@ -3,9 +3,11 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { bookingApi } from '@/api/booking'
+import { useConfirm } from '@/composables/useConfirm'
 import type { Booking } from '@/api/booking'
 
 const { t, locale } = useI18n()
+const { confirm } = useConfirm()
 const route = useRoute()
 const router = useRouter()
 
@@ -50,7 +52,7 @@ function formatDate(date: string) {
 
 async function handleCancel() {
   if (!booking.value) return
-  if (!confirm(t('manage.cancelConfirm'))) return
+  if (!await confirm(t('manage.cancelConfirm'))) return
 
   cancelling.value = true
   try {

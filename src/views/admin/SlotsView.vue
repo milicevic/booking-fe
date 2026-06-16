@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useConfirm } from '@/composables/useConfirm'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { adminApi } from '@/api/admin'
 import { useAdminContextStore } from '@/stores/adminContext'
@@ -8,6 +9,7 @@ import type { Worker } from '@/api/admin'
 import type { Slot } from '@/api/booking'
 
 const { t, locale } = useI18n()
+const { confirm } = useConfirm()
 const adminContext = useAdminContextStore()
 
 const slots = ref<Slot[]>([])
@@ -70,7 +72,7 @@ async function handleCreate() {
 }
 
 async function handleDelete(slot: Slot) {
-  if (!confirm(t('slots.deleteConfirm'))) return
+  if (!await confirm(t('slots.deleteConfirm'))) return
   await adminApi.deleteSlot(slot.id)
   await fetchSlots()
 }

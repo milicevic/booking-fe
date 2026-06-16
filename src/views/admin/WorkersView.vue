@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useConfirm } from '@/composables/useConfirm'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { adminApi } from '@/api/admin'
 import { useAdminContextStore } from '@/stores/adminContext'
 import type { Worker } from '@/api/admin'
 
 const { t } = useI18n()
+const { confirm } = useConfirm()
 const adminContext = useAdminContextStore()
 const workers = ref<Worker[]>([])
 const loading = ref(true)
@@ -56,7 +58,7 @@ async function handleCreate() {
 }
 
 async function handleDelete(worker: Worker) {
-  if (!confirm(t('workers.deleteConfirm', { name: worker.name }))) return
+  if (!await confirm(t('workers.deleteConfirm', { name: worker.name }))) return
   await adminApi.deleteWorker(worker.id)
   await fetchWorkers()
 }

@@ -3,6 +3,7 @@ export default {
     loading: 'Učitavanje...',
     save: 'Sačuvaj',
     cancel: 'Otkaži',
+    confirm: 'Potvrdi',
     error: 'Greška',
     optional: 'opciono',
     or: 'ili',
