@@ -1,25 +1,40 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useTenantStore } from '@/stores/tenant'
+import { useAdminContextStore } from '@/stores/adminContext'
 import SubscriptionBanner from '@/components/SubscriptionBanner.vue'
+import LangSwitcher from '@/components/LangSwitcher.vue'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const tenant = useTenantStore()
+const adminContext = useAdminContextStore()
+
+const isAdmin = computed(() => auth.client?.role === 'admin')
+const showBottomNav = computed(() => !isAdmin.value || !!adminContext.selectedClient)
 
 async function handleLogout() {
   await auth.logout()
   router.push({ name: 'login' })
 }
 
-const navItems = [
-  { name: 'dashboard', label: 'Pregled', icon: '📊' },
-  { name: 'bookings', label: 'Rezervacije', icon: '📅' },
-  { name: 'slots', label: 'Termini', icon: '🕐' },
-  { name: 'workers', label: 'Radnici', icon: '👥' },
-]
+function handleBack() {
+  adminContext.clearClient()
+  router.push({ name: 'dashboard' })
+}
+
+const navItems = computed(() => [
+  { name: 'dashboard', label: t('nav.overview'), icon: '📊' },
+  { name: 'bookings', label: t('nav.bookings'), icon: '📅' },
+  { name: 'slots', label: t('nav.slots'), icon: '🕐' },
+  { name: 'workers', label: t('nav.workers'), icon: '👥' },
+])
 </script>
 
 <template>
@@ -32,20 +47,49 @@ const navItems = [
     <nav class="bg-white border-b border-gray-100 px-4 py-3">
       <div class="max-w-5xl mx-auto flex items-center justify-between">
         <div class="flex items-center gap-2.5">
-          <img v-if="tenant.logoUrl" :src="tenant.logoUrl" alt="logo" class="h-6 w-auto" />
-          <span class="font-semibold text-gray-900">{{ tenant.appName }}</span>
+          <!-- Admin in client context: back button + client name -->
+          <template v-if="isAdmin && adminContext.selectedClient">
+            <button
+              @click="handleBack"
+              class="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium mr-2"
+            >
+              {{ t('nav.clients') }}
+            </button>
+            <span class="font-semibold text-gray-900">{{ adminContext.selectedClient.name }}</span>
+            <span
+              v-if="adminContext.selectedClient.is_suspended"
+              class="text-[10px] bg-red-100 text-red-600 font-medium px-2 py-0.5 rounded-full"
+            >
+              {{ t('nav.suspended') }}
+            </span>
+          </template>
+
+          <!-- Admin on main page -->
+          <template v-else-if="isAdmin">
+            <span class="font-semibold text-gray-900">{{ t('nav.adminPanel') }}</span>
+          </template>
+
+          <!-- Client / worker -->
+          <template v-else>
+            <img v-if="tenant.logoUrl" :src="tenant.logoUrl" alt="logo" class="h-6 w-auto" />
+            <span class="font-semibold text-gray-900">{{ tenant.appName }}</span>
+          </template>
         </div>
-        <button
-          @click="handleLogout"
-          class="text-sm text-gray-500 hover:text-gray-700"
-        >
-          Odjava
-        </button>
+
+        <div class="flex items-center gap-2">
+          <LangSwitcher />
+          <button
+            @click="handleLogout"
+            class="text-sm text-gray-500 hover:text-gray-700"
+          >
+            {{ t('nav.logout') }}
+          </button>
+        </div>
       </div>
     </nav>
 
-    <!-- Bottom nav (mobile) -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex z-10">
+    <!-- Bottom nav — prikazuje se samo za non-admin ili admin u kontekstu klijenta -->
+    <nav v-if="showBottomNav" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex z-10">
       <router-link
         v-for="item in navItems"
         :key="item.name"
@@ -61,7 +105,7 @@ const navItems = [
     </nav>
 
     <!-- Content -->
-    <main class="max-w-5xl mx-auto px-4 pt-6 pb-24">
+    <main class="max-w-5xl mx-auto px-4 pt-6" :class="showBottomNav ? 'pb-24' : 'pb-6'">
       <slot />
     </main>
   </div>

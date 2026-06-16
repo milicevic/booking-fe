@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { adminApi } from '@/api/admin'
+import { useAdminContextStore } from '@/stores/adminContext'
 import type { Booking } from '@/api/booking'
 
+const { t, locale } = useI18n()
+const adminContext = useAdminContextStore()
 const bookings = ref<Booking[]>([])
 const loading = ref(true)
 const filter = ref<'all' | 'confirmed' | 'cancelled'>('all')
@@ -15,7 +19,7 @@ onMounted(async () => {
 async function fetchBookings() {
   loading.value = true
   try {
-    const { data } = await adminApi.getBookings()
+    const { data } = await adminApi.getBookings(adminContext.selectedClient?.id)
     bookings.value = data
   } finally {
     loading.value = false
@@ -23,7 +27,7 @@ async function fetchBookings() {
 }
 
 async function handleCancel(booking: Booking) {
-  if (!confirm(`Otkazati rezervaciju za ${booking.customer_name}?`)) return
+  if (!confirm(t('bookingsView.cancelConfirm', { name: booking.customer_name }))) return
   await adminApi.cancelBooking(booking.token)
   await fetchBookings()
 }
@@ -34,7 +38,7 @@ const filtered = computed(() => {
 })
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString('sr-RS', {
+  return new Date(date).toLocaleDateString(locale.value === 'sr' ? 'sr-RS' : 'en-US', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -44,9 +48,8 @@ function formatDate(date: string) {
 
 <template>
   <AdminLayout>
-    <h1 class="text-xl font-semibold text-gray-900 mb-6">Rezervacije</h1>
+    <h1 class="text-xl font-semibold text-gray-900 mb-6">{{ t('bookingsView.title') }}</h1>
 
-    <!-- Filter -->
     <div class="flex gap-2 mb-6">
       <button
         v-for="f in ['all', 'confirmed', 'cancelled']"
@@ -57,11 +60,11 @@ function formatDate(date: string) {
           : 'bg-white text-gray-500 border border-gray-200'"
         class="text-sm font-medium px-4 py-2 rounded-lg transition-colors"
       >
-        {{ f === 'all' ? 'Sve' : f === 'confirmed' ? 'Aktivne' : 'Otkazane' }}
+        {{ f === 'all' ? t('bookingsView.filterAll') : f === 'confirmed' ? t('bookingsView.filterActive') : t('bookingsView.filterCancelled') }}
       </button>
     </div>
 
-    <div v-if="loading" class="text-gray-400 text-sm">Učitavanje...</div>
+    <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>
 
     <div v-else class="space-y-2">
       <div
@@ -82,7 +85,7 @@ function formatDate(date: string) {
               : 'bg-red-100 text-red-700'"
             class="text-xs font-medium px-2.5 py-1 rounded-full shrink-0"
           >
-            {{ booking.status === 'confirmed' ? 'Aktivna' : 'Otkazana' }}
+            {{ booking.status === 'confirmed' ? t('bookingsView.statusActive') : t('bookingsView.statusCancelled') }}
           </span>
         </div>
 
@@ -96,12 +99,12 @@ function formatDate(date: string) {
           @click="handleCancel(booking)"
           class="mt-3 text-xs text-red-500 hover:text-red-700 transition-colors"
         >
-          Otkaži rezervaciju
+          {{ t('bookingsView.cancelBtn') }}
         </button>
       </div>
 
       <div v-if="filtered.length === 0" class="text-center py-8 text-gray-400 text-sm">
-        Nema rezervacija
+        {{ t('bookingsView.noBookings') }}
       </div>
     </div>
   </AdminLayout>

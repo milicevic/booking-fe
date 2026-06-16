@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { adminApi } from '@/api/admin'
 import { tenantApi } from '@/api/tenant'
 import { useAuthStore } from '@/stores/auth'
 import { useTenantStore } from '@/stores/tenant'
+import { useAdminContextStore } from '@/stores/adminContext'
 import type { Worker, AdminClient } from '@/api/admin'
 import type { Slot } from '@/api/booking'
+
+const { t, locale } = useI18n()
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 const slots = ref<Slot[]>([])
@@ -22,8 +26,8 @@ const isWorker = computed(() => auth.client?.role === 'worker')
 const isAdmin = computed(() => auth.client?.role === 'admin')
 
 // ─── Admin: client list ───────────────────────────────────────────────────────
+const adminContext = useAdminContextStore()
 const clients = ref<AdminClient[]>([])
-const selectedClient = ref<AdminClient | null>(null)
 const suspending = ref<number | null>(null)
 
 async function loadClients() {
@@ -37,20 +41,15 @@ async function toggleSuspend(c: AdminClient) {
     const { data } = await adminApi.suspendClient(c.id)
     const idx = clients.value.findIndex(x => x.id === c.id)
     if (idx !== -1) clients.value[idx] = data
+    if (adminContext.selectedClient?.id === c.id) adminContext.selectClient(data)
   } finally {
     suspending.value = null
   }
 }
 
 function openClient(c: AdminClient) {
-  selectedClient.value = c
+  adminContext.selectClient(c)
   loadClientDashboard(c.id)
-}
-
-function backToList() {
-  selectedClient.value = null
-  slots.value = []
-  workers.value = []
 }
 
 async function loadClientDashboard(clientId: number) {
@@ -67,7 +66,7 @@ async function loadClientDashboard(clientId: number) {
   }
 }
 
-// ─── Deploy zahtev ────────────────────────────────────────────────────────────
+// ─── Deploy ────────────────────────────────────────────────────────────────────
 const tenantStore = useTenantStore()
 const showDeployModal = ref(false)
 const deployForm = ref({ subdomain: '', custom_domain: '' })
@@ -81,23 +80,23 @@ async function handleDeployRequest() {
     ? { custom_domain: deployForm.value.custom_domain }
     : { subdomain: deployForm.value.subdomain }
   if (!payload.subdomain && !payload.custom_domain) {
-    deployError.value = 'Unesite subdomenu ili custom domenu'
+    deployError.value = t('dashboard.deploy.errorEmpty')
     return
   }
   deployLoading.value = true
   try {
     await tenantApi.requestDeploy(payload)
-    deploySuccess.value = 'Zahtev je poslat! Administrator će ga obraditi.'
+    deploySuccess.value = t('dashboard.deploy.successMsg')
     showDeployModal.value = false
     await tenantStore.fetchConfig()
   } catch (e: any) {
-    deployError.value = e.response?.data?.message ?? 'Greška pri slanju zahteva'
+    deployError.value = e.response?.data?.message ?? t('dashboard.deploy.errorSend')
   } finally {
     deployLoading.value = false
   }
 }
 
-// ─── Auto-confirm toggle ──────────────────────────────────────────────────────
+// ─── Auto-confirm ─────────────────────────────────────────────────────────────
 const autoConfirm = ref(false)
 const savingSettings = ref(false)
 
@@ -116,9 +115,21 @@ async function toggleAutoConfirm() {
 const calendarBase = ref(new Date())
 const selectedDate = ref<string | null>(null)
 
+const jsLocale = computed(() => locale.value === 'sr' ? 'sr-RS' : 'en-US')
+
 const monthLabel = computed(() =>
-  calendarBase.value.toLocaleDateString('sr-RS', { month: 'long', year: 'numeric' })
+  calendarBase.value.toLocaleDateString(jsLocale.value, { month: 'long', year: 'numeric' })
 )
+
+const calDays = computed(() => [
+  t('dashboard.weekdays.1'),
+  t('dashboard.weekdays.2'),
+  t('dashboard.weekdays.3'),
+  t('dashboard.weekdays.4'),
+  t('dashboard.weekdays.5'),
+  t('dashboard.weekdays.6'),
+  t('dashboard.weekdays.7'),
+])
 
 const calendarDays = computed(() => {
   const year = calendarBase.value.getFullYear()
@@ -171,16 +182,22 @@ function selectDate(date: string) {
   selectedDate.value = selectedDate.value === date ? null : date
 }
 
+function formatDateLong(date: string) {
+  return new Date(date + 'T00:00:00').toLocaleDateString(jsLocale.value, {
+    weekday: 'long', day: 'numeric', month: 'long',
+  })
+}
+
 // ─── Generator form ───────────────────────────────────────────────────────────
-const WEEKDAYS = [
-  { value: 1, label: 'Pon' },
-  { value: 2, label: 'Uto' },
-  { value: 3, label: 'Sre' },
-  { value: 4, label: 'Čet' },
-  { value: 5, label: 'Pet' },
-  { value: 6, label: 'Sub' },
-  { value: 7, label: 'Ned' },
-]
+const WEEKDAYS = computed(() => [
+  { value: 1, label: t('dashboard.weekdays.1') },
+  { value: 2, label: t('dashboard.weekdays.2') },
+  { value: 3, label: t('dashboard.weekdays.3') },
+  { value: 4, label: t('dashboard.weekdays.4') },
+  { value: 5, label: t('dashboard.weekdays.5') },
+  { value: 6, label: t('dashboard.weekdays.6') },
+  { value: 7, label: t('dashboard.weekdays.7') },
+])
 
 const DURATIONS = [15, 20, 30, 45, 60, 90, 120]
 
@@ -257,12 +274,12 @@ async function handleGenerate() {
   generateError.value = ''
   generateSuccess.value = ''
 
-  if (!form.value.worker_id) return (generateError.value = 'Odaberite radnika')
-  if (!form.value.date_from || !form.value.date_to) return (generateError.value = 'Unesite period')
-  if (form.value.weekdays.length === 0) return (generateError.value = 'Odaberite bar jedan dan')
+  if (!form.value.worker_id) return (generateError.value = t('dashboard.generate.errorNoWorker'))
+  if (!form.value.date_from || !form.value.date_to) return (generateError.value = t('dashboard.generate.errorNoPeriod'))
+  if (form.value.weekdays.length === 0) return (generateError.value = t('dashboard.generate.errorNoDays'))
 
   const toCreate = buildSlots()
-  if (toCreate.length === 0) return (generateError.value = 'Nema termina za generisanje')
+  if (toCreate.length === 0) return (generateError.value = t('dashboard.generate.errorNoSlots'))
 
   generating.value = true
   try {
@@ -274,10 +291,10 @@ async function handleGenerate() {
         end_time: s.end,
       } as any)
     }
-    generateSuccess.value = `Generisano ${toCreate.length} termina`
+    generateSuccess.value = t('dashboard.generate.success', { count: toCreate.length })
     await fetchSlots()
   } catch {
-    generateError.value = 'Greška pri generisanju'
+    generateError.value = t('dashboard.generate.errorGenerate')
   } finally {
     generating.value = false
   }
@@ -303,18 +320,20 @@ const upcomingBookings = computed(() =>
 )
 
 function formatDate(date: string) {
-  return new Date(date + 'T00:00:00').toLocaleDateString('sr-RS', {
+  return new Date(date + 'T00:00:00').toLocaleDateString(jsLocale.value, {
     weekday: 'short', day: 'numeric', month: 'short',
   })
 }
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 async function fetchSlots() {
-  const { data } = await adminApi.getSlots(selectedClient.value?.id)
+  const { data } = await adminApi.getSlots(adminContext.selectedClient?.id)
   slots.value = data
 }
 
-onMounted(async () => {
+watch(() => auth.client, async (client) => {
+  if (!client) return
+  loading.value = true
   try {
     if (isAdmin.value) {
       await loadClients()
@@ -326,12 +345,12 @@ onMounted(async () => {
       const [sRes, wRes] = await Promise.all([adminApi.getSlots(), adminApi.getWorkers()])
       slots.value = sRes.data
       workers.value = wRes.data
-      autoConfirm.value = auth.client?.client_profile?.auto_confirm_bookings ?? false
+      autoConfirm.value = client.client_profile?.auto_confirm_bookings ?? false
     }
   } finally {
     loading.value = false
   }
-})
+}, { immediate: true })
 
 function formatTime(t: string) {
   return t.slice(0, 5)
@@ -345,27 +364,11 @@ function formatTime(t: string) {
     <template v-if="isAdmin">
 
       <!-- Drilled into a client -->
-      <template v-if="selectedClient">
-        <div class="flex items-center gap-3 mb-6">
-          <button
-            @click="backToList"
-            class="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
-          >
-            ← Nazad
-          </button>
-          <h1 class="text-xl font-semibold text-gray-900">{{ selectedClient.name }}</h1>
-          <span
-            v-if="selectedClient.is_suspended"
-            class="text-xs bg-red-100 text-red-600 font-medium px-2 py-0.5 rounded-full"
-          >
-            Suspendovan
-          </span>
-        </div>
-
-        <div v-if="loading" class="text-gray-400 text-sm">Učitavanje...</div>
+      <template v-if="adminContext.selectedClient">
+        <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>
 
         <div v-else class="flex flex-col lg:flex-row gap-6">
-          <!-- ── Kalendar ─────────────────────────────────────────────── -->
+          <!-- ── Calendar ─────────────────────────────────────────────── -->
           <div class="lg:w-1/2 space-y-4">
             <div class="bg-white rounded-xl border border-gray-100 p-4">
               <div class="flex items-center justify-between mb-4">
@@ -374,7 +377,7 @@ function formatTime(t: string) {
                 <button @click="nextMonth" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">›</button>
               </div>
               <div class="grid grid-cols-7 mb-1">
-                <div v-for="d in ['Pon','Uto','Sre','Čet','Pet','Sub','Ned']" :key="d"
+                <div v-for="d in calDays" :key="d"
                   class="text-center text-xs text-gray-400 font-medium py-1">{{ d }}</div>
               </div>
               <div class="grid grid-cols-7 gap-1">
@@ -397,14 +400,14 @@ function formatTime(t: string) {
                   </button>
                 </div>
               </div>
-              <p class="text-xs text-gray-400 mt-3 text-center">Slobodni / Ukupno termini po danu</p>
+              <p class="text-xs text-gray-400 mt-3 text-center">{{ t('dashboard.slotsLegend') }}</p>
             </div>
 
             <div v-if="selectedDate" class="bg-white rounded-xl border border-gray-100 p-4">
-              <h2 class="text-sm font-medium text-gray-700 mb-3">
-                {{ new Date(selectedDate).toLocaleDateString('sr-RS', { weekday: 'long', day: 'numeric', month: 'long' }) }}
+              <h2 class="text-sm font-medium text-gray-700 mb-3 capitalize">
+                {{ formatDateLong(selectedDate) }}
               </h2>
-              <div v-if="selectedDaySlots.length === 0" class="text-gray-400 text-sm text-center py-4">Nema termina</div>
+              <div v-if="selectedDaySlots.length === 0" class="text-gray-400 text-sm text-center py-4">{{ t('dashboard.noSlots') }}</div>
               <div v-else class="space-y-1.5">
                 <div v-for="slot in selectedDaySlots" :key="slot.id"
                   class="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50">
@@ -413,7 +416,7 @@ function formatTime(t: string) {
                     <span class="text-xs text-gray-400">{{ slot.worker.name }}</span>
                     <span :class="slot.is_available ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'"
                       class="text-[10px] font-medium px-2 py-0.5 rounded-full">
-                      {{ slot.is_available ? 'Slobodan' : 'Zauzet' }}
+                      {{ slot.is_available ? t('dashboard.slotAvailable') : t('dashboard.slotTaken') }}
                     </span>
                   </div>
                 </div>
@@ -421,20 +424,20 @@ function formatTime(t: string) {
             </div>
           </div>
 
-          <!-- ── Generator forme ──────────────────────────────────────── -->
+          <!-- ── Slot generator ──────────────────────────────────────── -->
           <div class="lg:w-1/2">
             <div class="bg-white rounded-xl border border-gray-100 p-5 space-y-5">
-              <h2 class="text-sm font-semibold text-gray-900">Generisanje termina</h2>
+              <h2 class="text-sm font-semibold text-gray-900">{{ t('dashboard.generate.title') }}</h2>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1.5">Radnik *</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.worker') }} *</label>
                 <select v-model="form.worker_id"
                   class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                  <option value="">Odaberi radnika</option>
+                  <option value="">{{ t('dashboard.generate.workerPlaceholder') }}</option>
                   <option v-for="w in workers" :key="w.id" :value="w.id">{{ w.name }}</option>
                 </select>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1.5">Period *</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.period') }} *</label>
                 <div class="grid grid-cols-2 gap-2">
                   <input v-model="form.date_from" type="date" :min="new Date().toISOString().slice(0,10)"
                     class="border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
@@ -443,7 +446,7 @@ function formatTime(t: string) {
                 </div>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1.5">Radni dani</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.weekdays') }}</label>
                 <div class="flex gap-1.5 flex-wrap">
                   <button v-for="d in WEEKDAYS" :key="d.value" @click="toggleWeekday(d.value)"
                     :class="form.weekdays.includes(d.value) ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
@@ -451,17 +454,17 @@ function formatTime(t: string) {
                 </div>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1.5">Radno vreme</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.workHours') }}</label>
                 <div class="flex items-center gap-2">
                   <input v-model="form.work_start" type="time"
                     class="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                  <span class="text-gray-400 text-sm">do</span>
+                  <span class="text-gray-400 text-sm">{{ t('dashboard.generate.to') }}</span>
                   <input v-model="form.work_end" type="time"
                     class="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                 </div>
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1.5">Trajanje slota</label>
+                <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.duration') }}</label>
                 <div class="flex gap-1.5 flex-wrap">
                   <button v-for="dur in DURATIONS" :key="dur" @click="form.slot_duration = dur"
                     :class="form.slot_duration === dur ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
@@ -470,8 +473,8 @@ function formatTime(t: string) {
               </div>
               <div>
                 <div class="flex items-center justify-between mb-1.5">
-                  <label class="text-xs font-medium text-gray-600">Pauze</label>
-                  <button @click="addBreak" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors">+ Dodaj pauzu</button>
+                  <label class="text-xs font-medium text-gray-600">{{ t('dashboard.generate.breaks') }}</label>
+                  <button @click="addBreak" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors">{{ t('dashboard.generate.addBreak') }}</button>
                 </div>
                 <div class="space-y-2">
                   <div v-for="(br, i) in form.breaks" :key="i" class="flex items-center gap-2">
@@ -482,19 +485,19 @@ function formatTime(t: string) {
                       class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                     <button @click="removeBreak(i)" class="text-gray-300 hover:text-red-400 transition-colors text-lg leading-none shrink-0">×</button>
                   </div>
-                  <p v-if="form.breaks.length === 0" class="text-xs text-gray-400">Nema pauza</p>
+                  <p v-if="form.breaks.length === 0" class="text-xs text-gray-400">{{ t('dashboard.generate.noBreaks') }}</p>
                 </div>
               </div>
               <div class="border-t border-gray-100 pt-4 space-y-3">
                 <div class="flex items-center justify-between">
-                  <span class="text-xs text-gray-500">Biće generisano:</span>
-                  <span class="text-sm font-semibold text-indigo-600">{{ preview }} termina</span>
+                  <span class="text-xs text-gray-500">{{ t('dashboard.generate.willGenerate') }}</span>
+                  <span class="text-sm font-semibold text-indigo-600">{{ preview }} {{ t('dashboard.generate.slots') }}</span>
                 </div>
                 <p v-if="generateError" class="text-red-500 text-xs">{{ generateError }}</p>
                 <p v-if="generateSuccess" class="text-green-600 text-xs font-medium">{{ generateSuccess }}</p>
                 <button @click="handleGenerate" :disabled="generating || preview === 0"
                   class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">
-                  {{ generating ? 'Generisanje...' : 'Generisi termine' }}
+                  {{ generating ? t('dashboard.generate.generating') : t('dashboard.generate.generateBtn') }}
                 </button>
               </div>
             </div>
@@ -504,13 +507,13 @@ function formatTime(t: string) {
 
       <!-- Client list -->
       <template v-else>
-        <h1 class="text-xl font-semibold text-gray-900 mb-6">Klijenti</h1>
+        <h1 class="text-xl font-semibold text-gray-900 mb-6">{{ t('dashboard.admin.clients') }}</h1>
 
-        <div v-if="loading" class="text-gray-400 text-sm">Učitavanje...</div>
+        <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>
 
         <div v-else class="space-y-3">
           <div v-if="clients.length === 0" class="bg-white rounded-xl border border-gray-100 p-6 text-center text-gray-400 text-sm">
-            Nema klijenata
+            {{ t('dashboard.admin.noClients') }}
           </div>
 
           <div
@@ -523,10 +526,10 @@ function formatTime(t: string) {
                 <p class="text-sm font-medium text-gray-900 truncate">{{ c.name }}</p>
                 <span v-if="c.is_suspended"
                   class="text-[10px] bg-red-100 text-red-600 font-medium px-2 py-0.5 rounded-full shrink-0">
-                  Suspendovan
+                  {{ t('nav.suspended') }}
                 </span>
               </div>
-              <p class="text-xs text-gray-400 mt-0.5">{{ c.email }} · {{ c.workers_count }} radnika</p>
+              <p class="text-xs text-gray-400 mt-0.5">{{ c.email }} · {{ t('dashboard.admin.workers', { count: c.workers_count }) }}</p>
             </div>
 
             <div class="flex items-center gap-2 ml-4 shrink-0">
@@ -538,13 +541,13 @@ function formatTime(t: string) {
                   : 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200'"
                 class="text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
               >
-                {{ suspending === c.id ? '...' : c.is_suspended ? 'Aktiviraj' : 'Suspenduj' }}
+                {{ suspending === c.id ? '...' : c.is_suspended ? t('dashboard.admin.activate') : t('dashboard.admin.suspend') }}
               </button>
               <button
                 @click="openClient(c)"
                 class="text-xs font-medium px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
               >
-                Otvori
+                {{ t('dashboard.admin.open') }}
               </button>
             </div>
           </div>
@@ -554,28 +557,26 @@ function formatTime(t: string) {
 
     <!-- ── Worker dashboard ──────────────────────────────────────────── -->
     <template v-else-if="isWorker">
-      <h1 class="text-xl font-semibold text-gray-900 mb-6">Dobrodošli, {{ auth.client?.name }}</h1>
+      <h1 class="text-xl font-semibold text-gray-900 mb-6">{{ t('dashboard.worker.welcome', { name: auth.client?.name }) }}</h1>
 
-      <div v-if="loading" class="text-gray-400 text-sm">Učitavanje...</div>
+      <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>
 
       <template v-else>
-        <!-- Stats -->
         <div class="grid grid-cols-2 gap-3 mb-6">
           <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
             <p class="text-2xl font-semibold text-gray-900">{{ todayBookings.length }}</p>
-            <p class="text-xs text-gray-500 mt-0.5">Danas</p>
+            <p class="text-xs text-gray-500 mt-0.5">{{ t('dashboard.worker.today') }}</p>
           </div>
           <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
             <p class="text-2xl font-semibold text-indigo-600">{{ upcomingBookings.length }}</p>
-            <p class="text-xs text-gray-500 mt-0.5">Predstojeći</p>
+            <p class="text-xs text-gray-500 mt-0.5">{{ t('dashboard.worker.upcoming') }}</p>
           </div>
         </div>
 
-        <!-- Danas -->
-        <h2 class="text-sm font-medium text-gray-500 mb-3">Danas</h2>
+        <h2 class="text-sm font-medium text-gray-500 mb-3">{{ t('dashboard.worker.today') }}</h2>
         <div class="space-y-2 mb-6">
           <div v-if="todayBookings.length === 0" class="bg-white rounded-xl border border-gray-100 p-4 text-center text-gray-400 text-sm">
-            Nema termina danas
+            {{ t('dashboard.worker.noToday') }}
           </div>
           <div
             v-for="b in todayBookings"
@@ -592,16 +593,15 @@ function formatTime(t: string) {
               :class="b.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'"
               class="text-xs font-medium px-2.5 py-1 rounded-full"
             >
-              {{ b.status === 'confirmed' ? 'Potvrđena' : 'Na čekanju' }}
+              {{ b.status === 'confirmed' ? t('dashboard.worker.confirmed') : t('dashboard.worker.pending') }}
             </span>
           </div>
         </div>
 
-        <!-- Predstojeći -->
-        <h2 class="text-sm font-medium text-gray-500 mb-3">Predstojeći termini</h2>
+        <h2 class="text-sm font-medium text-gray-500 mb-3">{{ t('dashboard.worker.upcomingTitle') }}</h2>
         <div class="space-y-2">
           <div v-if="upcomingBookings.length === 0" class="bg-white rounded-xl border border-gray-100 p-4 text-center text-gray-400 text-sm">
-            Nema predstojejih termina
+            {{ t('dashboard.worker.noUpcoming') }}
           </div>
           <div
             v-for="b in upcomingBookings"
@@ -618,7 +618,7 @@ function formatTime(t: string) {
               :class="b.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'"
               class="text-xs font-medium px-2.5 py-1 rounded-full"
             >
-              {{ b.status === 'confirmed' ? 'Potvrđena' : 'Na čekanju' }}
+              {{ b.status === 'confirmed' ? t('dashboard.worker.confirmed') : t('dashboard.worker.pending') }}
             </span>
           </div>
         </div>
@@ -628,11 +628,11 @@ function formatTime(t: string) {
     <!-- ── Client dashboard ───────────────────────────────────────────── -->
     <template v-else>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-xl font-semibold text-gray-900">Dashboard</h1>
+      <h1 class="text-xl font-semibold text-gray-900">{{ t('dashboard.title') }}</h1>
 
       <div class="flex items-center gap-3">
         <span class="text-xs text-gray-500">
-          {{ autoConfirm ? 'Automatsko odobravanje' : 'Ručno odobravanje' }}
+          {{ autoConfirm ? t('dashboard.autoConfirm') : t('dashboard.manualConfirm') }}
         </span>
         <button
           role="switch"
@@ -650,17 +650,13 @@ function formatTime(t: string) {
       </div>
     </div>
 
-    <!-- ── Deploy sekcija ──────────────────────────────────────────── -->
-    <div
-      v-if="tenantStore.config && !['active', 'trialing'].includes(tenantStore.config.subscription_status) === false && tenantStore.config.subscription_status !== 'pending_deploy'"
-      class="hidden"
-    />
+    <!-- Deploy section -->
     <div
       v-if="tenantStore.config?.subscription_status === 'pending_deploy'"
       class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-center gap-3"
     >
       <div class="w-2 h-2 bg-blue-400 rounded-full animate-pulse shrink-0" />
-      <p class="text-sm text-blue-700">Deploy zahtev je na čekanju — administrator obrađuje vaš zahtev.</p>
+      <p class="text-sm text-blue-700">{{ t('dashboard.deploy.pending') }}</p>
     </div>
     <div v-else-if="tenantStore.config && ['trialing', 'active'].includes(tenantStore.config.subscription_status)" class="mb-6">
       <div v-if="deploySuccess" class="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
@@ -668,31 +664,30 @@ function formatTime(t: string) {
       </div>
       <div v-else-if="!showDeployModal" class="bg-white border border-gray-100 rounded-xl p-4 flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium text-gray-900">Objavite svoju booking stranicu</p>
-          <p class="text-xs text-gray-400 mt-0.5">Pošaljite zahtev za deploy na vašu subdomenu ili custom domenu</p>
+          <p class="text-sm font-medium text-gray-900">{{ t('dashboard.deploy.title') }}</p>
+          <p class="text-xs text-gray-400 mt-0.5">{{ t('dashboard.deploy.subtitle') }}</p>
         </div>
         <button
           @click="showDeployModal = true"
           class="text-sm font-medium px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shrink-0 ml-4"
         >
-          Deploy
+          {{ t('dashboard.deploy.btn') }}
         </button>
       </div>
 
-      <!-- Deploy modal inline -->
       <div v-else class="bg-white border border-indigo-200 rounded-xl p-5 space-y-4">
         <div class="flex items-center justify-between">
-          <h3 class="text-sm font-semibold text-gray-900">Zahtev za deploy</h3>
+          <h3 class="text-sm font-semibold text-gray-900">{{ t('dashboard.deploy.modalTitle') }}</h3>
           <button @click="showDeployModal = false; deployError = ''" class="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1.5">Subdomena</label>
+          <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.deploy.subdomain') }}</label>
           <div class="flex items-center border border-gray-200 rounded-lg overflow-hidden">
             <input
               v-model="deployForm.subdomain"
               type="text"
-              placeholder="moj-salon"
+              :placeholder="t('dashboard.deploy.subdomainPlaceholder')"
               :disabled="!!deployForm.custom_domain"
               class="flex-1 px-3 py-2.5 text-sm focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
             />
@@ -702,16 +697,16 @@ function formatTime(t: string) {
 
         <div class="flex items-center gap-2">
           <div class="flex-1 h-px bg-gray-200" />
-          <span class="text-xs text-gray-400">ili</span>
+          <span class="text-xs text-gray-400">{{ t('common.or') }}</span>
           <div class="flex-1 h-px bg-gray-200" />
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1.5">Custom domena</label>
+          <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.deploy.customDomain') }}</label>
           <input
             v-model="deployForm.custom_domain"
             type="text"
-            placeholder="rezervacije.moj-salon.com"
+            :placeholder="t('dashboard.deploy.customDomainPlaceholder')"
             :disabled="!!deployForm.subdomain"
             class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
           />
@@ -724,34 +719,27 @@ function formatTime(t: string) {
           :disabled="deployLoading"
           class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
         >
-          {{ deployLoading ? 'Slanje...' : 'Pošalji zahtev' }}
+          {{ deployLoading ? t('dashboard.deploy.sending') : t('dashboard.deploy.send') }}
         </button>
       </div>
     </div>
 
-    <div v-if="loading" class="text-gray-400 text-sm">Učitavanje...</div>
+    <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>
 
     <div v-else class="flex flex-col lg:flex-row gap-6">
 
-      <!-- ── Kalendar ─────────────────────────────────────────────── -->
+      <!-- ── Calendar ─────────────────────────────────────────────── -->
       <div class="lg:w-1/2 space-y-4">
         <div class="bg-white rounded-xl border border-gray-100 p-4">
-
-          <!-- Navigacija -->
           <div class="flex items-center justify-between mb-4">
-            <button @click="prevMonth" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
-              ‹
-            </button>
+            <button @click="prevMonth" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">‹</button>
             <span class="text-sm font-medium text-gray-900 capitalize">{{ monthLabel }}</span>
-            <button @click="nextMonth" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
-              ›
-            </button>
+            <button @click="nextMonth" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">›</button>
           </div>
 
-          <!-- Zaglavlje dana -->
           <div class="grid grid-cols-7 mb-1">
             <div
-              v-for="d in ['Pon', 'Uto', 'Sre', 'Čet', 'Pet', 'Sub', 'Ned']"
+              v-for="d in calDays"
               :key="d"
               class="text-center text-xs text-gray-400 font-medium py-1"
             >
@@ -759,13 +747,9 @@ function formatTime(t: string) {
             </div>
           </div>
 
-          <!-- Dani -->
           <div class="grid grid-cols-7 gap-1">
             <div v-for="(day, i) in calendarDays" :key="i">
-              <!-- Prazan (prethodni mesec) -->
               <div v-if="!day" class="h-12" />
-
-              <!-- Dan -->
               <button
                 v-else
                 @click="selectDate(day.date)"
@@ -790,18 +774,17 @@ function formatTime(t: string) {
           </div>
 
           <p class="text-xs text-gray-400 mt-3 text-center">
-            Slobodni / Ukupno termini po danu
+            {{ t('dashboard.slotsLegend') }}
           </p>
         </div>
 
-        <!-- Termini odabranog dana -->
         <div v-if="selectedDate" class="bg-white rounded-xl border border-gray-100 p-4">
-          <h2 class="text-sm font-medium text-gray-700 mb-3">
-            {{ new Date(selectedDate).toLocaleDateString('sr-RS', { weekday: 'long', day: 'numeric', month: 'long' }) }}
+          <h2 class="text-sm font-medium text-gray-700 mb-3 capitalize">
+            {{ formatDateLong(selectedDate) }}
           </h2>
 
           <div v-if="selectedDaySlots.length === 0" class="text-gray-400 text-sm text-center py-4">
-            Nema termina
+            {{ t('dashboard.noSlots') }}
           </div>
 
           <div v-else class="space-y-1.5">
@@ -819,7 +802,7 @@ function formatTime(t: string) {
                   :class="slot.is_available ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'"
                   class="text-[10px] font-medium px-2 py-0.5 rounded-full"
                 >
-                  {{ slot.is_available ? 'Slobodan' : 'Zauzet' }}
+                  {{ slot.is_available ? t('dashboard.slotAvailable') : t('dashboard.slotTaken') }}
                 </span>
               </div>
             </div>
@@ -827,26 +810,24 @@ function formatTime(t: string) {
         </div>
       </div>
 
-      <!-- ── Generator forme ──────────────────────────────────────── -->
+      <!-- ── Slot generator ──────────────────────────────────────── -->
       <div class="lg:w-1/2">
         <div class="bg-white rounded-xl border border-gray-100 p-5 space-y-5">
-          <h2 class="text-sm font-semibold text-gray-900">Generisanje termina</h2>
+          <h2 class="text-sm font-semibold text-gray-900">{{ t('dashboard.generate.title') }}</h2>
 
-          <!-- Radnik -->
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1.5">Radnik *</label>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.worker') }} *</label>
             <select
               v-model="form.worker_id"
               class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="">Odaberi radnika</option>
+              <option value="">{{ t('dashboard.generate.workerPlaceholder') }}</option>
               <option v-for="w in workers" :key="w.id" :value="w.id">{{ w.name }}</option>
             </select>
           </div>
 
-          <!-- Period -->
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1.5">Period *</label>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.period') }} *</label>
             <div class="grid grid-cols-2 gap-2">
               <input
                 v-model="form.date_from"
@@ -863,9 +844,8 @@ function formatTime(t: string) {
             </div>
           </div>
 
-          <!-- Radni dani -->
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1.5">Radni dani</label>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.weekdays') }}</label>
             <div class="flex gap-1.5 flex-wrap">
               <button
                 v-for="d in WEEKDAYS"
@@ -881,16 +861,15 @@ function formatTime(t: string) {
             </div>
           </div>
 
-          <!-- Radno vreme -->
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1.5">Radno vreme</label>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.workHours') }}</label>
             <div class="flex items-center gap-2">
               <input
                 v-model="form.work_start"
                 type="time"
                 class="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
-              <span class="text-gray-400 text-sm">do</span>
+              <span class="text-gray-400 text-sm">{{ t('dashboard.generate.to') }}</span>
               <input
                 v-model="form.work_end"
                 type="time"
@@ -899,9 +878,8 @@ function formatTime(t: string) {
             </div>
           </div>
 
-          <!-- Trajanje slota -->
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1.5">Trajanje slota</label>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.duration') }}</label>
             <div class="flex gap-1.5 flex-wrap">
               <button
                 v-for="dur in DURATIONS"
@@ -917,15 +895,14 @@ function formatTime(t: string) {
             </div>
           </div>
 
-          <!-- Pauze -->
           <div>
             <div class="flex items-center justify-between mb-1.5">
-              <label class="text-xs font-medium text-gray-600">Pauze</label>
+              <label class="text-xs font-medium text-gray-600">{{ t('dashboard.generate.breaks') }}</label>
               <button
                 @click="addBreak"
                 class="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
               >
-                + Dodaj pauzu
+                {{ t('dashboard.generate.addBreak') }}
               </button>
             </div>
             <div class="space-y-2">
@@ -953,16 +930,15 @@ function formatTime(t: string) {
                 </button>
               </div>
               <p v-if="form.breaks.length === 0" class="text-xs text-gray-400">
-                Nema pauza
+                {{ t('dashboard.generate.noBreaks') }}
               </p>
             </div>
           </div>
 
-          <!-- Preview + Generate -->
           <div class="border-t border-gray-100 pt-4 space-y-3">
             <div class="flex items-center justify-between">
-              <span class="text-xs text-gray-500">Biće generisano:</span>
-              <span class="text-sm font-semibold text-indigo-600">{{ preview }} termina</span>
+              <span class="text-xs text-gray-500">{{ t('dashboard.generate.willGenerate') }}</span>
+              <span class="text-sm font-semibold text-indigo-600">{{ preview }} {{ t('dashboard.generate.slots') }}</span>
             </div>
 
             <p v-if="generateError" class="text-red-500 text-xs">{{ generateError }}</p>
@@ -973,7 +949,7 @@ function formatTime(t: string) {
               :disabled="generating || preview === 0"
               class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
             >
-              {{ generating ? 'Generisanje...' : 'Generisi termine' }}
+              {{ generating ? t('dashboard.generate.generating') : t('dashboard.generate.generateBtn') }}
             </button>
           </div>
         </div>

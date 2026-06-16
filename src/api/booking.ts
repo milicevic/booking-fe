@@ -19,6 +19,7 @@ export interface Slot {
   start_time: string
   end_time: string
   is_available: boolean
+  service_name: string | null
   worker: Worker
 }
 

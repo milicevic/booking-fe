@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { adminApi } from '@/api/admin'
+import { useAdminContextStore } from '@/stores/adminContext'
 import type { Worker } from '@/api/admin'
 import type { Slot } from '@/api/booking'
+
+const { t, locale } = useI18n()
+const adminContext = useAdminContextStore()
 
 const slots = ref<Slot[]>([])
 const workers = ref<Worker[]>([])
@@ -26,7 +31,7 @@ onMounted(async () => {
 async function fetchSlots() {
   loading.value = true
   try {
-    const { data } = await adminApi.getSlots()
+    const { data } = await adminApi.getSlots(adminContext.selectedClient?.id)
     slots.value = data
   } finally {
     loading.value = false
@@ -34,13 +39,13 @@ async function fetchSlots() {
 }
 
 async function fetchWorkers() {
-  const { data } = await adminApi.getWorkers()
+  const { data } = await adminApi.getWorkers(adminContext.selectedClient?.id)
   workers.value = data
 }
 
 async function handleCreate() {
   if (!form.value.worker_id || !form.value.date || !form.value.start_time || !form.value.end_time) {
-    error.value = 'Sva polja su obavezna'
+    error.value = t('slots.timeRequired')
     return
   }
 
@@ -58,20 +63,20 @@ async function handleCreate() {
     showForm.value = false
     await fetchSlots()
   } catch {
-    error.value = 'Greška pri dodavanju termina'
+    error.value = t('slots.addError')
   } finally {
     submitting.value = false
   }
 }
 
 async function handleDelete(slot: Slot) {
-  if (!confirm('Obrisati termin?')) return
+  if (!confirm(t('slots.deleteConfirm'))) return
   await adminApi.deleteSlot(slot.id)
   await fetchSlots()
 }
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString('sr-RS', {
+  return new Date(date).toLocaleDateString(locale.value === 'sr' ? 'sr-RS' : 'en-US', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -82,24 +87,23 @@ function formatDate(date: string) {
 <template>
   <AdminLayout>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-xl font-semibold text-gray-900">Termini</h1>
+      <h1 class="text-xl font-semibold text-gray-900">{{ t('slots.title') }}</h1>
       <button
         @click="showForm = !showForm"
         class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
       >
-        + Dodaj
+        {{ t('slots.addBtn') }}
       </button>
     </div>
 
-    <!-- Forma -->
     <div v-if="showForm" class="bg-white rounded-xl border border-gray-100 p-5 mb-6">
-      <h2 class="text-sm font-medium text-gray-700 mb-4">Novi termin</h2>
+      <h2 class="text-sm font-medium text-gray-700 mb-4">{{ t('slots.formTitle') }}</h2>
       <div class="space-y-3">
         <select
           v-model="form.worker_id"
           class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
-          <option value="">Odaberi radnika *</option>
+          <option value="">{{ t('slots.workerPlaceholder') }} *</option>
           <option v-for="w in workers" :key="w.id" :value="w.id">
             {{ w.name }}
           </option>
@@ -112,7 +116,7 @@ function formatDate(date: string) {
         />
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="text-xs text-gray-500 mb-1 block">Početak</label>
+            <label class="text-xs text-gray-500 mb-1 block">{{ t('slots.startTime') }}</label>
             <input
               v-model="form.start_time"
               type="time"
@@ -120,7 +124,7 @@ function formatDate(date: string) {
             />
           </div>
           <div>
-            <label class="text-xs text-gray-500 mb-1 block">Kraj</label>
+            <label class="text-xs text-gray-500 mb-1 block">{{ t('slots.endTime') }}</label>
             <input
               v-model="form.end_time"
               type="time"
@@ -135,20 +139,19 @@ function formatDate(date: string) {
             :disabled="submitting"
             class="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
           >
-            {{ submitting ? 'Čuvanje...' : 'Sačuvaj' }}
+            {{ submitting ? t('slots.saving') : t('common.save') }}
           </button>
           <button
             @click="showForm = false"
             class="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-medium py-2.5 rounded-lg transition-colors"
           >
-            Otkaži
+            {{ t('common.cancel') }}
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Lista termina -->
-    <div v-if="loading" class="text-gray-400 text-sm">Učitavanje...</div>
+    <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>
 
     <div v-else class="space-y-2">
       <div
@@ -171,7 +174,7 @@ function formatDate(date: string) {
               : 'bg-orange-100 text-orange-700'"
             class="text-xs font-medium px-2.5 py-1 rounded-full"
           >
-            {{ slot.is_available ? 'Slobodan' : 'Zauzet' }}
+            {{ slot.is_available ? t('slots.available') : t('slots.taken') }}
           </span>
           <button
             v-if="slot.is_available"
@@ -184,7 +187,7 @@ function formatDate(date: string) {
       </div>
 
       <div v-if="slots.length === 0" class="text-center py-8 text-gray-400 text-sm">
-        Nema termina — dodajte prvi
+        {{ t('slots.noSlots') }}
       </div>
     </div>
   </AdminLayout>

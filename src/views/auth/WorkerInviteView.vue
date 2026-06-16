@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { tenantApi } from '@/api/tenant'
 import { useAuthStore } from '@/stores/auth'
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
@@ -23,11 +25,10 @@ async function handleSubmit() {
   loading.value = true
   try {
     const { data } = await tenantApi.acceptInvite(token, form)
-    // Auto-login radnika
     auth.setSession(data.token as string, data.client as any)
     router.push({ name: 'dashboard' })
   } catch (e: any) {
-    error.value = e.response?.data?.message ?? 'Link je nevažeći ili je istekao'
+    error.value = e.response?.data?.message ?? t('auth.inviteError')
   } finally {
     loading.value = false
   }
@@ -39,14 +40,14 @@ async function handleSubmit() {
     <div class="w-full max-w-sm">
 
       <div class="text-center mb-8">
-        <h1 class="text-2xl font-bold text-gray-900">Prihvati pozivnicu</h1>
-        <p class="text-sm text-gray-500 mt-1">Podesite vaš radni nalog</p>
+        <h1 class="text-2xl font-bold text-gray-900">{{ t('auth.inviteTitle') }}</h1>
+        <p class="text-sm text-gray-500 mt-1">{{ t('auth.inviteSubtitle') }}</p>
       </div>
 
       <form @submit.prevent="handleSubmit" class="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
 
         <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1.5">Vaše ime *</label>
+          <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('auth.yourName') }} *</label>
           <input
             v-model="form.name"
             type="text"
@@ -57,13 +58,13 @@ async function handleSubmit() {
         </div>
 
         <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1.5">Lozinka *</label>
+          <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('auth.password') }} *</label>
           <input
             v-model="form.password"
             type="password"
             required
             minlength="8"
-            placeholder="Minimum 8 karaktera"
+            :placeholder="t('auth.minPassword')"
             class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
@@ -75,7 +76,7 @@ async function handleSubmit() {
           :disabled="loading"
           class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium py-3 rounded-xl transition-colors"
         >
-          {{ loading ? 'Aktivacija...' : 'Aktiviraj nalog' }}
+          {{ loading ? t('auth.activating') : t('auth.activateBtn') }}
         </button>
       </form>
     </div>
