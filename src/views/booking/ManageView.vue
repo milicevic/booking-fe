@@ -42,7 +42,7 @@ function bookingStatusClass(status: string) {
 }
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString(jsLocale.value, {
+  return new Date(date.slice(0, 10) + 'T00:00:00').toLocaleDateString(jsLocale.value, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',

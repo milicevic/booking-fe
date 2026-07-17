@@ -321,7 +321,7 @@ const upcomingBookings = computed(() =>
 )
 
 function formatDate(date: string) {
-  return new Date(date + 'T00:00:00').toLocaleDateString(jsLocale.value, {
+  return new Date(date.slice(0, 10) + 'T00:00:00').toLocaleDateString(jsLocale.value, {
     weekday: 'short', day: 'numeric', month: 'short',
   })
 }

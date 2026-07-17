@@ -104,7 +104,7 @@ function notifLabel(n: Notification) {
           </p>
           <p class="text-xs text-gray-400 mt-0.5">
             {{ formatDate(n.data.date) }} {{ t('notifications.at') }} {{ n.data.start_time.slice(0, 5) }}
-            · {{ t('notifications.with') }} {{ n.data.worker_name }}
+            · {{ t('notifications.with') }} {{ n.data.worker_name }}<template v-if="n.data.service_name"> · {{ n.data.service_name }}</template>
           </p>
         </div>
         <span class="text-[10px] text-gray-300 shrink-0 mt-0.5">

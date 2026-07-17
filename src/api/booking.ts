@@ -12,6 +12,13 @@ export interface Booking {
   slot: Slot
 }
 
+export interface Service {
+  id: number
+  name: string
+  duration_minutes: number
+  price: string | null
+}
+
 export interface Slot {
   id: number
   worker_id: number
@@ -19,13 +26,13 @@ export interface Slot {
   start_time: string
   end_time: string
   is_available: boolean
-  service_name: string | null
   worker: Worker
 }
 
 export interface Worker {
   id: number
   name: string
+  services?: Service[]
 }
 
 export const bookingApi = {
@@ -35,6 +42,7 @@ export const bookingApi = {
     customer_email?: string
     customer_phone?: string
     note?: string
+    service_id?: number
   }) => api.post<Booking>('/api/bookings', data),
 
   getByToken: (token: string) =>
@@ -42,4 +50,9 @@ export const bookingApi = {
 
   cancel: (token: string) =>
     api.patch(`/api/bookings/${token}/cancel`),
+
+  registerPushSubscription: (token: string, data: {
+    endpoint: string
+    keys: { p256dh: string; auth: string }
+  }) => api.post(`/api/bookings/${token}/push-subscription`, data),
 }

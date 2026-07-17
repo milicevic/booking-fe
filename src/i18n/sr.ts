@@ -15,6 +15,7 @@ export default {
     bookings: 'Rezervacije',
     slots: 'Termini',
     workers: 'Radnici',
+    services: 'Usluge',
     logout: 'Odjava',
     adminPanel: 'Admin panel',
     clients: '← Klijenti',
@@ -69,6 +70,13 @@ export default {
     date: 'Datum',
     time: 'Vreme',
     manageLink: 'Upravljaj rezervacijom →',
+    pushTitle: 'Primajte obaveštenja',
+    pushDesc: 'Primite push obaveštenje kada se status vaše rezervacije promeni.',
+    pushBtn: 'Omogući obaveštenja',
+    pushSubscribing: 'Prijava...',
+    pushSubscribed: 'Bićete obavešteni o promenama statusa rezervacije.',
+    pushError: 'Nije moguće omogućiti obaveštenja. Pokušajte ponovo.',
+    pushUnsupported: 'Push obaveštenja nisu podržana u ovom pregledaču.',
   },
 
   manage: {
@@ -248,6 +256,25 @@ export default {
     booking_confirmed: 'Rezervacija potvrđena za {name}',
     at: 'u',
     with: 'sa',
+  },
+
+  services: {
+    title: 'Usluge',
+    addBtn: '+ Dodaj',
+    name: 'Naziv',
+    duration: 'Trajanje (min)',
+    price: 'Cena',
+    active: 'Aktivna',
+    saving: 'Čuvanje...',
+    deleteConfirm: 'Obrisati uslugu {name}?',
+    noServices: 'Nema usluga — dodajte prvu',
+    assignWorkers: 'Radnici',
+    nameRequired: 'Unesite naziv usluge',
+    durationRequired: 'Unesite trajanje',
+    addError: 'Greška pri dodavanju usluge',
+    updateError: 'Greška pri izmeni usluge',
+    deleteError: 'Greška pri brisanju usluge',
+    assignError: 'Greška pri dodeljivanju radnika',
   },
 
   bookingsView: {

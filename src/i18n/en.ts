@@ -15,6 +15,7 @@ export default {
     bookings: 'Bookings',
     slots: 'Slots',
     workers: 'Workers',
+    services: 'Services',
     logout: 'Logout',
     adminPanel: 'Admin panel',
     clients: '← Clients',
@@ -69,6 +70,13 @@ export default {
     date: 'Date',
     time: 'Time',
     manageLink: 'Manage booking →',
+    pushTitle: 'Get notified',
+    pushDesc: 'Receive a push notification when your booking is confirmed or rejected.',
+    pushBtn: 'Enable notifications',
+    pushSubscribing: 'Subscribing...',
+    pushSubscribed: "You'll be notified when your booking status changes.",
+    pushError: 'Could not enable notifications. Try again later.',
+    pushUnsupported: 'Push notifications are not supported in this browser.',
   },
 
   manage: {
@@ -248,6 +256,25 @@ export default {
     booking_confirmed: 'Booking confirmed for {name}',
     at: 'at',
     with: 'with',
+  },
+
+  services: {
+    title: 'Services',
+    addBtn: '+ Add',
+    name: 'Name',
+    duration: 'Duration (min)',
+    price: 'Price',
+    active: 'Active',
+    saving: 'Saving...',
+    deleteConfirm: 'Delete service {name}?',
+    noServices: 'No services — add the first one',
+    assignWorkers: 'Workers',
+    nameRequired: 'Enter service name',
+    durationRequired: 'Enter duration',
+    addError: 'Error adding service',
+    updateError: 'Error updating service',
+    deleteError: 'Error deleting service',
+    assignError: 'Error updating worker assignment',
   },
 
   bookingsView: {

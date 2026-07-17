@@ -78,7 +78,7 @@ async function handleDelete(slot: Slot) {
 }
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString(locale.value === 'sr' ? 'sr-RS' : 'en-US', {
+  return new Date(date.slice(0, 10) + 'T00:00:00').toLocaleDateString(locale.value === 'sr' ? 'sr-RS' : 'en-US', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',

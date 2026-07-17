@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { slotsApi } from '@/api/slots'
 import { bookingApi } from '@/api/booking'
-import type { Slot } from '@/api/booking'
+import type { Slot, Service } from '@/api/booking'
 
 const { t, locale } = useI18n()
 const router = useRouter()
@@ -17,7 +17,7 @@ const error = ref('')
 
 // ─── Steps: worker → service → date → slot → form ────────────────────────────
 const selectedWorkerId = ref<number | null>(null)
-const selectedService = ref<string | null>(null)
+const selectedService = ref<Service | null>(null)
 const selectedDate = ref<string | null>(null)
 const selectedSlot = ref<Slot | null>(null)
 
@@ -48,32 +48,28 @@ function pickWorker(id: number) {
 // ─── Services for selected worker ─────────────────────────────────────────────
 const workerServices = computed(() => {
   if (!selectedWorkerId.value) return []
-  const set = new Set<string>()
+  const map = new Map<number, Service>()
   for (const s of allSlots.value) {
-    if (s.worker.id === selectedWorkerId.value && s.service_name) {
-      set.add(s.service_name)
+    if (s.worker.id === selectedWorkerId.value) {
+      for (const svc of s.worker.services ?? []) {
+        if (!map.has(svc.id)) map.set(svc.id, svc)
+      }
     }
   }
-  return [...set]
+  return [...map.values()]
 })
 
-function pickService(service: string) {
+function pickService(service: Service) {
   selectedService.value = service
   selectedDate.value = null
   selectedSlot.value = null
   error.value = ''
 }
 
-// ─── Slots filtered by worker + service ──────────────────────────────────────
+// ─── Slots filtered by worker ─────────────────────────────────────────────────
 const workerSlots = computed(() => {
   if (!selectedWorkerId.value) return []
-  return allSlots.value.filter(s => {
-    if (s.worker.id !== selectedWorkerId.value) return false
-    if (workerServices.value.length > 0 && selectedService.value) {
-      return s.service_name === selectedService.value
-    }
-    return true
-  })
+  return allSlots.value.filter(s => s.worker.id === selectedWorkerId.value)
 })
 
 // ─── Calendar ─────────────────────────────────────────────────────────────────
@@ -161,7 +157,7 @@ function pickSlot(slot: Slot) {
 }
 
 function formatDate(date: string) {
-  return new Date(date + 'T00:00:00').toLocaleDateString(jsLocale.value, {
+  return new Date(date.slice(0, 10) + 'T00:00:00').toLocaleDateString(jsLocale.value, {
     weekday: 'long', day: 'numeric', month: 'long',
   })
 }
@@ -191,6 +187,7 @@ async function handleSubmit() {
     const { data } = await bookingApi.create({
       slot_id: selectedSlot.value.id,
       ...form.value,
+      ...(selectedService.value ? { service_id: selectedService.value.id } : {}),
     })
     router.push({ name: 'confirmation', query: { token: data.token } })
   } catch (e: any) {
@@ -257,14 +254,15 @@ async function handleSubmit() {
           <div class="flex flex-wrap gap-2">
             <button
               v-for="service in workerServices"
-              :key="service"
+              :key="service.id"
               @click="pickService(service)"
-              :class="selectedService === service
+              :class="selectedService?.id === service.id
                 ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
                 : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'"
-              class="px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors"
+              class="px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left"
             >
-              {{ service }}
+              <span>{{ service.name }}</span>
+              <span v-if="service.price" class="ml-1.5 font-normal opacity-70">{{ service.price }}</span>
             </button>
           </div>
         </div>
@@ -369,7 +367,7 @@ async function handleSubmit() {
                 <div>
                   <p class="text-sm font-medium text-indigo-900">
                     {{ workers.find(w => w.id === selectedWorkerId)?.name }}
-                    <span v-if="selectedService" class="font-normal text-indigo-600"> · {{ selectedService }}</span>
+                    <span v-if="selectedService" class="font-normal text-indigo-600"> · {{ selectedService.name }}<template v-if="selectedService.price"> ({{ selectedService.price }})</template></span>
                   </p>
                   <p class="text-sm text-indigo-700 capitalize mt-0.5">
                     {{ formatDate(selectedSlot.date) }}

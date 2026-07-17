@@ -34,6 +34,7 @@ const navItems = computed(() => [
   { name: 'bookings', label: t('nav.bookings'), icon: '📅' },
   { name: 'slots', label: t('nav.slots'), icon: '🕐' },
   { name: 'workers', label: t('nav.workers'), icon: '👥' },
+  { name: 'services', label: t('nav.services'), icon: '💆' },
 ])
 </script>
 

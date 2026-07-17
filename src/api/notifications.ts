@@ -8,6 +8,7 @@ export interface Notification {
     booking_token: string
     customer_name: string
     worker_name: string
+    service_name: string | null
     date: string
     start_time: string
   }
