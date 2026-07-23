@@ -16,6 +16,7 @@ export default {
     slots: 'Slots',
     workers: 'Workers',
     services: 'Services',
+    branding: 'Branding',
     logout: 'Logout',
     adminPanel: 'Admin panel',
     clients: '← Clients',
@@ -275,6 +276,22 @@ export default {
     updateError: 'Error updating service',
     deleteError: 'Error deleting service',
     assignError: 'Error updating worker assignment',
+  },
+
+  branding: {
+    title: 'Branding',
+    appName: 'App name',
+    primaryColor: 'Primary color',
+    secondaryColor: 'Secondary color',
+    theme: 'Theme',
+    logo: 'Logo',
+    logoHint: 'PNG or JPG, max 2MB',
+    uploadLogo: 'Upload logo',
+    save: 'Save',
+    saving: 'Saving...',
+    saved: 'Saved!',
+    uploadError: 'Upload failed',
+    saveError: 'Save failed',
   },
 
   bookingsView: {

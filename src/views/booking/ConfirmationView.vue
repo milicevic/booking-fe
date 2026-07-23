@@ -57,8 +57,8 @@ async function subscribePush() {
   pushError.value = ''
 
   try {
-    const registration = await navigator.serviceWorker.register('/sw.js')
-    await navigator.serviceWorker.ready
+    await navigator.serviceWorker.register('/sw.js')
+    const registration = await navigator.serviceWorker.ready  // the active registration
 
     const { data: { vapid_public_key } } = await api.get('/api/push/vapid-public-key')
 

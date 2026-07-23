@@ -29,12 +29,15 @@ function handleBack() {
   router.push({ name: 'dashboard' })
 }
 
+const isClient = computed(() => auth.client?.role === 'client')
+
 const navItems = computed(() => [
   { name: 'dashboard', label: t('nav.overview'), icon: '📊' },
   { name: 'bookings', label: t('nav.bookings'), icon: '📅' },
   { name: 'slots', label: t('nav.slots'), icon: '🕐' },
   { name: 'workers', label: t('nav.workers'), icon: '👥' },
   { name: 'services', label: t('nav.services'), icon: '💆' },
+  ...(isClient.value ? [{ name: 'branding', label: t('nav.branding'), icon: '🎨' }] : []),
 ])
 </script>
 

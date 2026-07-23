@@ -14,6 +14,17 @@ export interface TenantConfig {
 export const tenantApi = {
   getConfig: () => api.get<TenantConfig>('/api/tenant/config'),
 
+  updateBranding: (data: { app_name?: string; primary_color?: string; secondary_color?: string; theme?: string }) =>
+    api.patch<{ app_name: string; primary_color: string; secondary_color: string; theme: string; logo_url: string | null }>('/api/client/branding', data),
+
+  uploadLogo: (file: File) => {
+    const form = new FormData()
+    form.append('logo', file)
+    return api.post<{ logo_url: string }>('/api/client/branding/logo', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+
   register: (data: {
     name: string
     email: string

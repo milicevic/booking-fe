@@ -16,6 +16,7 @@ export default {
     slots: 'Termini',
     workers: 'Radnici',
     services: 'Usluge',
+    branding: 'Brendiranje',
     logout: 'Odjava',
     adminPanel: 'Admin panel',
     clients: '← Klijenti',
@@ -275,6 +276,22 @@ export default {
     updateError: 'Greška pri izmeni usluge',
     deleteError: 'Greška pri brisanju usluge',
     assignError: 'Greška pri dodeljivanju radnika',
+  },
+
+  branding: {
+    title: 'Brendiranje',
+    appName: 'Ime aplikacije',
+    primaryColor: 'Primarna boja',
+    secondaryColor: 'Sekundarna boja',
+    theme: 'Tema',
+    logo: 'Logo',
+    logoHint: 'PNG ili JPG, max 2MB',
+    uploadLogo: 'Postavi logo',
+    save: 'Sačuvaj',
+    saving: 'Čuvanje...',
+    saved: 'Sačuvano!',
+    uploadError: 'Greška pri uploadu',
+    saveError: 'Greška pri čuvanju',
   },
 
   bookingsView: {
