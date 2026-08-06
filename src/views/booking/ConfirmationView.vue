@@ -64,7 +64,7 @@ async function subscribePush() {
 
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapid_public_key),
+      applicationServerKey: urlBase64ToUint8Array(vapid_public_key) as Uint8Array<ArrayBuffer>,
     })
     const json = subscription.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } }
     await bookingApi.registerPushSubscription(booking.value.token, json)

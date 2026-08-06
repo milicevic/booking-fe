@@ -12,6 +12,7 @@ import type { Worker, AdminClient } from '@/api/admin'
 import type { Slot } from '@/api/booking'
 
 const { t, locale } = useI18n()
+const platformHost = import.meta.env.VITE_PLATFORM_HOST || 'booking.app'
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 const slots = ref<Slot[]>([])
@@ -235,7 +236,7 @@ function buildSlots() {
   const to = new Date(form.value.date_to)
   if (from > to) return result
 
-  const [endH, endM] = form.value.work_end.split(':').map(Number)
+  const [endH = 0, endM = 0] = form.value.work_end.split(':').map(Number)
   const workEndMin = endH * 60 + endM
 
   for (const cur = new Date(from); cur <= to; cur.setDate(cur.getDate() + 1)) {
@@ -243,7 +244,7 @@ function buildSlots() {
     if (!form.value.weekdays.includes(dow)) continue
 
     const dateStr = cur.toISOString().slice(0, 10)
-    const [sh, sm] = form.value.work_start.split(':').map(Number)
+    const [sh = 0, sm = 0] = form.value.work_start.split(':').map(Number)
     let cursor = sh * 60 + sm
 
     while (cursor + form.value.slot_duration <= workEndMin) {
@@ -251,8 +252,8 @@ function buildSlots() {
 
       const inBreak = form.value.breaks.some(br => {
         if (!br.start || !br.end) return false
-        const [bsh, bsm] = br.start.split(':').map(Number)
-        const [beh, bem] = br.end.split(':').map(Number)
+        const [bsh = 0, bsm = 0] = br.start.split(':').map(Number)
+        const [beh = 0, bem = 0] = br.end.split(':').map(Number)
         return cursor < beh * 60 + bem && slotEnd > bsh * 60 + bsm
       })
 
@@ -696,7 +697,7 @@ function formatTime(t: string) {
               :disabled="!!deployForm.custom_domain"
               class="flex-1 px-3 py-2.5 text-sm focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
             />
-            <span class="px-3 py-2.5 bg-gray-50 text-gray-400 text-xs border-l border-gray-200">.booking.app</span>
+            <span class="px-3 py-2.5 bg-gray-50 text-gray-400 text-xs border-l border-gray-200">.{{ platformHost }}</span>
           </div>
         </div>
 

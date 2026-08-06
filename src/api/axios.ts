@@ -11,7 +11,7 @@ function resolveTenantHeader(): { key: string; value: string } | null {
 
   // Dev: *.localhost (npr. test-salon.localhost → subdomain = test-salon)
   if (hostname.endsWith('.localhost') && parts.length === 2) {
-    return { key: 'X-Tenant-Subdomain', value: parts[0] }
+    return { key: 'X-Tenant-Subdomain', value: parts[0] as string }
   }
 
   // Produkcija: koristimo VITE_PLATFORM_HOST da razlikujemo main od tenant domene
