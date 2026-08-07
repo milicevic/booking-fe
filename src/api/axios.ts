@@ -9,7 +9,7 @@ function resolveTenantHeader(): { key: string; value: string } | null {
   const hostname = window.location.hostname
   const parts = hostname.split('.')
 
-  // Dev: *.localhost (npr. test-salon.localhost → subdomain = test-salon)
+  // Dev: *.localhost (npr. salon-a.localhost → subdomain = salon-a)
   if (hostname.endsWith('.localhost') && parts.length === 2) {
     return { key: 'X-Tenant-Subdomain', value: parts[0] as string }
   }
@@ -31,24 +31,23 @@ function resolveTenantHeader(): { key: string; value: string } | null {
   return { key: 'X-Tenant-Domain', value: hostname }
 }
 
-const headers: Record<string, string> = {
-  'Content-Type': 'application/json',
-  'Accept': 'application/json',
-}
-
-const tenantHeader = resolveTenantHeader()
-if (tenantHeader) {
-  headers[tenantHeader.key] = tenantHeader.value
-}
-
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
   withCredentials: true,
-  headers,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
 })
 
 api.interceptors.request.use((config) => {
   config.headers['Accept-Language'] = i18n.global.locale.value
+
+  const tenantHeader = resolveTenantHeader()
+  if (tenantHeader) {
+    config.headers[tenantHeader.key] = tenantHeader.value
+  }
+
   return config
 })
 
