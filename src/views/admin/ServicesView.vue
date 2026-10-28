@@ -8,8 +8,12 @@ import { adminApi } from '@/api/admin'
 import type { Service } from '@/api/services'
 import type { Worker } from '@/api/admin'
 import { useAdminContextStore } from '@/stores/adminContext'
+import { apiErrorMessage } from '@/lib/apiError'
+import { formatPrice } from '@/lib/price'
+import { useTenantStore } from '@/stores/tenant'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+const tenantStore = useTenantStore()
 const { confirm } = useConfirm()
 const adminContext = useAdminContextStore()
 
@@ -80,8 +84,8 @@ async function handleCreate() {
     form.value = { name: '', duration_minutes: 30, price: '', is_active: true }
     showForm.value = false
     await fetchServices()
-  } catch {
-    error.value = t('services.addError')
+  } catch (e) {
+    error.value = apiErrorMessage(e, t('services.addError'))
   } finally {
     submitting.value = false
   }
@@ -109,8 +113,8 @@ async function handleUpdate(id: number) {
     })
     editingId.value = null
     await fetchServices()
-  } catch {
-    error.value = t('services.updateError')
+  } catch (e) {
+    error.value = apiErrorMessage(e, t('services.updateError'))
   } finally {
     submitting.value = false
   }
@@ -121,8 +125,8 @@ async function handleDelete(service: Service) {
   try {
     await servicesApi.deleteService(service.id)
     await fetchServices()
-  } catch {
-    error.value = t('services.deleteError')
+  } catch (e) {
+    error.value = apiErrorMessage(e, t('services.deleteError'))
   }
 }
 
@@ -142,8 +146,8 @@ async function toggleWorkerAssignment(service: Service, worker: Worker) {
       await servicesApi.assignWorker(service.id, worker.id)
     }
     await fetchServices()
-  } catch {
-    error.value = t('services.assignError')
+  } catch (e) {
+    error.value = apiErrorMessage(e, t('services.assignError'))
   }
 }
 </script>
@@ -277,9 +281,16 @@ async function toggleWorkerAssignment(service: Service, worker: Worker) {
                 {{ t('services.active') }}
               </span>
             </div>
+            <p
+              v-if="workers.length > 0 && !service.workers?.length"
+              class="text-[11px] text-amber-600 mt-1"
+              data-testid="service-unassigned"
+            >
+              {{ t('services.unassigned') }}
+            </p>
             <p class="text-xs text-gray-400 mt-0.5">
               {{ service.duration_minutes }} min
-              <template v-if="service.price"> · {{ service.price }}</template>
+              <template v-if="service.price"> · {{ formatPrice(service.price, locale, tenantStore.config?.currency) }}</template>
             </p>
           </div>
 

@@ -5,8 +5,13 @@ import { useI18n } from 'vue-i18n'
 import { bookingApi } from '@/api/booking'
 import api from '@/api/axios'
 import type { Booking } from '@/api/booking'
+import { useTenantStore } from '@/stores/tenant'
+import TenantLogo from '@/components/TenantLogo.vue'
+import { apiErrorMessage } from '@/lib/apiError'
+import { formatPrice } from '@/lib/price'
 
 const { t, locale } = useI18n()
+const tenant = useTenantStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -18,7 +23,7 @@ const pushSubscribed = ref(false)
 const pushSubscribing = ref(false)
 const pushError = ref('')
 
-const jsLocale = computed(() => locale.value === 'sr' ? 'sr-RS' : 'en-US')
+const jsLocale = computed(() => locale.value === 'sr' ? 'sr-Latn-RS' : 'en-US')
 
 onMounted(async () => {
   const token = route.query.token as string
@@ -71,7 +76,7 @@ async function subscribePush() {
     pushSubscribed.value = true
   } catch (e) {
     console.error('Push subscription failed:', e)
-    pushError.value = t('confirmation.pushError')
+    pushError.value = apiErrorMessage(e, t('confirmation.pushError'))
   } finally {
     pushSubscribing.value = false
   }
@@ -81,6 +86,11 @@ async function subscribePush() {
 <template>
   <div class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-md p-8 text-center">
+
+      <div class="flex items-center justify-center gap-2 mb-6">
+        <TenantLogo :src="tenant.logoUrl" :size="28" />
+        <span class="font-semibold text-gray-800">{{ tenant.appName }}</span>
+      </div>
 
       <div v-if="loading" class="text-gray-400">{{ t('common.loading') }}</div>
 
@@ -101,6 +111,12 @@ async function subscribePush() {
             <span class="text-gray-500">{{ t('confirmation.worker') }}</span>
             <span class="font-medium text-gray-900">{{ booking.slot.worker.name }}</span>
           </div>
+          <div v-if="booking.service" class="flex justify-between gap-4 text-sm">
+            <span class="text-gray-500">{{ t('confirmation.service') }}</span>
+            <span class="font-medium text-gray-900 text-right">
+              {{ booking.service.name }}<template v-if="booking.service.price"> · {{ formatPrice(booking.service.price, locale, tenant.config?.currency) }}</template>
+            </span>
+          </div>
           <div class="flex justify-between text-sm">
             <span class="text-gray-500">{{ t('confirmation.date') }}</span>
             <span class="font-medium text-gray-900 capitalize">{{ formatDate(booking.slot.date) }}</span>
@@ -108,7 +124,7 @@ async function subscribePush() {
           <div class="flex justify-between text-sm">
             <span class="text-gray-500">{{ t('confirmation.time') }}</span>
             <span class="font-medium text-gray-900">
-              {{ booking.slot.start_time.slice(0, 5) }} — {{ booking.slot.end_time.slice(0, 5) }}
+              {{ booking.start_time.slice(0, 5) }} — {{ booking.end_time.slice(0, 5) }}
             </span>
           </div>
         </div>

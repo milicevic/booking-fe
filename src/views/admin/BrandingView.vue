@@ -2,8 +2,11 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
+import TenantLogo from '@/components/TenantLogo.vue'
 import { tenantApi } from '@/api/tenant'
 import { useTenantStore } from '@/stores/tenant'
+import { apiErrorMessage } from '@/lib/apiError'
+import { CURRENCIES } from '@/lib/price'
 
 const { t } = useI18n()
 const tenantStore = useTenantStore()
@@ -13,11 +16,14 @@ const form = ref({
   primary_color: '#000000',
   secondary_color: '#000000',
   theme: 'minimal',
+  currency: 'RSD',
+  locale: 'sr',
 })
 
 const logoUrl = ref<string | null>(null)
 const saving = ref(false)
 const saveStatus = ref<'idle' | 'saved' | 'error'>('idle')
+const saveError = ref('')
 const uploadingLogo = ref(false)
 const uploadError = ref('')
 
@@ -28,6 +34,8 @@ onMounted(() => {
     form.value.primary_color = config.primary_color ?? '#000000'
     form.value.secondary_color = config.secondary_color ?? '#000000'
     form.value.theme = config.theme ?? 'minimal'
+    form.value.currency = config.currency ?? 'RSD'
+    form.value.locale = config.locale ?? 'sr'
     logoUrl.value = config.logo_url
   }
 })
@@ -41,11 +49,14 @@ async function handleSave() {
       primary_color: form.value.primary_color,
       secondary_color: form.value.secondary_color,
       theme: form.value.theme,
+      currency: form.value.currency,
+      locale: form.value.locale,
     })
     await tenantStore.fetchConfig()
     saveStatus.value = 'saved'
     setTimeout(() => { saveStatus.value = 'idle' }, 2500)
-  } catch {
+  } catch (e) {
+    saveError.value = apiErrorMessage(e, t('branding.saveError'))
     saveStatus.value = 'error'
   } finally {
     saving.value = false
@@ -63,8 +74,8 @@ async function handleLogoUpload(event: Event) {
     const { data } = await tenantApi.uploadLogo(file)
     logoUrl.value = data.logo_url
     await tenantStore.fetchConfig()
-  } catch {
-    uploadError.value = t('branding.uploadError')
+  } catch (e) {
+    uploadError.value = apiErrorMessage(e, t('branding.uploadError'))
   } finally {
     uploadingLogo.value = false
     input.value = ''
@@ -143,6 +154,33 @@ const themes = ['minimal', 'modern', 'classic'] as const
         </div>
       </div>
 
+      <!-- Valuta i jezik obaveštenja -->
+      <div class="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+        <div>
+          <label for="branding-currency" class="block text-sm font-medium text-gray-700 mb-2">{{ t('branding.currency') }}</label>
+          <select
+            id="branding-currency"
+            v-model="form.currency"
+            class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option v-for="currency in CURRENCIES" :key="currency" :value="currency">{{ currency }}</option>
+          </select>
+          <p class="text-xs text-gray-400 mt-1.5">{{ t('branding.currencyHint') }}</p>
+        </div>
+        <div>
+          <label for="branding-locale" class="block text-sm font-medium text-gray-700 mb-2">{{ t('branding.locale') }}</label>
+          <select
+            id="branding-locale"
+            v-model="form.locale"
+            class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="sr">Srpski</option>
+            <option value="en">English</option>
+          </select>
+          <p class="text-xs text-gray-400 mt-1.5">{{ t('branding.localeHint') }}</p>
+        </div>
+      </div>
+
       <!-- Save button -->
       <button
         @click="handleSave"
@@ -151,14 +189,21 @@ const themes = ['minimal', 'modern', 'classic'] as const
       >
         {{ saving ? t('branding.saving') : saveStatus === 'saved' ? t('branding.saved') : t('branding.save') }}
       </button>
-      <p v-if="saveStatus === 'error'" class="text-red-500 text-sm text-center">{{ t('branding.saveError') }}</p>
+      <p v-if="saveStatus === 'error'" class="text-red-500 text-sm text-center">{{ saveError }}</p>
 
       <!-- Logo -->
       <div class="bg-white rounded-xl border border-gray-100 p-5">
         <p class="text-sm font-medium text-gray-700 mb-3">{{ t('branding.logo') }}</p>
 
-        <div v-if="logoUrl" class="mb-4">
-          <img :src="logoUrl" alt="logo" class="h-16 w-auto object-contain rounded border border-gray-100 p-1" />
+        <div v-if="logoUrl" class="mb-4 flex flex-wrap items-end gap-6">
+          <img :src="logoUrl" alt="logo" class="h-16 w-auto max-w-[200px] object-contain rounded border border-gray-100 p-1" />
+          <div>
+            <p class="text-xs text-gray-400 mb-1.5">{{ t('branding.logoPreview') }}</p>
+            <div class="flex items-center gap-3 rounded-lg bg-gray-50 px-3 py-2">
+              <TenantLogo :src="logoUrl" :size="32" />
+              <span class="font-semibold text-gray-900">{{ form.app_name || tenantStore.appName }}</span>
+            </div>
+          </div>
         </div>
 
         <p class="text-xs text-gray-400 mb-3">{{ t('branding.logoHint') }}</p>
@@ -172,7 +217,7 @@ const themes = ['minimal', 'modern', 'classic'] as const
           </span>
           <input
             type="file"
-            accept="image/png,image/jpeg"
+            accept="image/png,image/jpeg,image/webp"
             class="sr-only"
             :disabled="uploadingLogo"
             @change="handleLogoUpload"

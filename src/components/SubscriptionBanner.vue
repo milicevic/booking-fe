@@ -16,10 +16,10 @@ const tenant = useTenantStore()
   </div>
 
   <div
-    v-else-if="tenant.isTrialing"
+    v-else-if="tenant.isTrialing && tenant.trialDaysLeft !== null"
     class="bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-center text-sm text-amber-700"
   >
-    <template v-if="tenant.trialDaysLeft > 0">
+    <template v-if="(tenant.trialDaysLeft ?? 0) > 0">
       {{ t('subscription.trialDays', { days: tenant.trialDaysLeft, label: tenant.trialDaysLeft === 1 ? t('subscription.trialDay') : t('subscription.trialDaysFew') }) }}
     </template>
     <template v-else>

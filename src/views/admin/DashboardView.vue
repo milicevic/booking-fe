@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import NotificationList from '@/components/NotificationList.vue'
 import { adminApi } from '@/api/admin'
-import { tenantApi } from '@/api/tenant'
+import { tenantUrl } from '@/lib/domain'
 import { useAuthStore } from '@/stores/auth'
 import { useTenantStore } from '@/stores/tenant'
 import { useAdminContextStore } from '@/stores/adminContext'
@@ -12,7 +12,6 @@ import type { Worker, AdminClient } from '@/api/admin'
 import type { Slot } from '@/api/booking'
 
 const { t, locale } = useI18n()
-const platformHost = import.meta.env.VITE_PLATFORM_HOST || 'booking.app'
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 const slots = ref<Slot[]>([])
@@ -68,35 +67,9 @@ async function loadClientDashboard(clientId: number) {
   }
 }
 
-// ─── Deploy ────────────────────────────────────────────────────────────────────
+// ─── Sajt klijenta ─────────────────────────────────────────────────────────────
 const tenantStore = useTenantStore()
-const showDeployModal = ref(false)
-const deployForm = ref({ subdomain: '', custom_domain: '' })
-const deployLoading = ref(false)
-const deployError = ref('')
-const deploySuccess = ref('')
-
-async function handleDeployRequest() {
-  deployError.value = ''
-  const payload = deployForm.value.custom_domain
-    ? { custom_domain: deployForm.value.custom_domain }
-    : { subdomain: deployForm.value.subdomain }
-  if (!payload.subdomain && !payload.custom_domain) {
-    deployError.value = t('dashboard.deploy.errorEmpty')
-    return
-  }
-  deployLoading.value = true
-  try {
-    await tenantApi.requestDeploy(payload)
-    deploySuccess.value = t('dashboard.deploy.successMsg')
-    showDeployModal.value = false
-    await tenantStore.fetchConfig()
-  } catch (e: any) {
-    deployError.value = e.response?.data?.message ?? t('dashboard.deploy.errorSend')
-  } finally {
-    deployLoading.value = false
-  }
-}
+const siteUrl = computed(() => tenantStore.config?.subdomain ? tenantUrl(tenantStore.config.subdomain) : '')
 
 // ─── Auto-confirm ─────────────────────────────────────────────────────────────
 const autoConfirm = ref(false)
@@ -117,7 +90,7 @@ async function toggleAutoConfirm() {
 const calendarBase = ref(new Date())
 const selectedDate = ref<string | null>(null)
 
-const jsLocale = computed(() => locale.value === 'sr' ? 'sr-RS' : 'en-US')
+const jsLocale = computed(() => locale.value === 'sr' ? 'sr-Latn-RS' : 'en-US')
 
 const monthLabel = computed(() =>
   calendarBase.value.toLocaleDateString(jsLocale.value, { month: 'long', year: 'numeric' })
@@ -295,8 +268,8 @@ async function handleGenerate() {
     }
     generateSuccess.value = t('dashboard.generate.success', { count: toCreate.length })
     await fetchSlots()
-  } catch {
-    generateError.value = t('dashboard.generate.errorGenerate')
+  } catch (e) {
+    generateError.value = apiErrorMessage(e, t('dashboard.generate.errorGenerate'))
   } finally {
     generating.value = false
   }
@@ -304,6 +277,7 @@ async function handleGenerate() {
 
 // ─── Worker dashboard ─────────────────────────────────────────────────────────
 import type { Booking } from '@/api/booking'
+import { apiErrorMessage } from '@/lib/apiError'
 
 const bookings = ref<Booking[]>([])
 
@@ -317,7 +291,7 @@ const todayBookings = computed(() =>
 const upcomingBookings = computed(() =>
   bookings.value
     .filter(b => b.slot.date.slice(0, 10) > todayStr && b.status !== 'cancelled')
-    .sort((a, b) => a.slot.date.localeCompare(b.slot.date) || a.slot.start_time.localeCompare(b.slot.start_time))
+    .sort((a, b) => a.slot.date.localeCompare(b.slot.date) || a.start_time.localeCompare(b.start_time))
     .slice(0, 10)
 )
 
@@ -367,7 +341,7 @@ function formatTime(t: string) {
 
       <!-- Drilled into a client -->
       <template v-if="adminContext.selectedClient">
-        <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>
+    <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>
 
         <div v-else class="flex flex-col lg:flex-row gap-6">
           <!-- ── Calendar ─────────────────────────────────────────────── -->
@@ -590,7 +564,7 @@ function formatTime(t: string) {
             <div>
               <p class="text-sm font-medium text-gray-900">{{ b.customer_name }}</p>
               <p class="text-xs text-gray-400 mt-0.5">
-                {{ b.slot.start_time.slice(0, 5) }} — {{ b.slot.end_time.slice(0, 5) }}
+                {{ b.start_time.slice(0, 5) }} — {{ b.end_time.slice(0, 5) }}
               </p>
             </div>
             <span
@@ -615,7 +589,7 @@ function formatTime(t: string) {
             <div>
               <p class="text-sm font-medium text-gray-900">{{ b.customer_name }}</p>
               <p class="text-xs text-gray-400 mt-0.5">
-                {{ formatDate(b.slot.date) }} · {{ b.slot.start_time.slice(0, 5) }} — {{ b.slot.end_time.slice(0, 5) }}
+                {{ formatDate(b.slot.date) }} · {{ b.start_time.slice(0, 5) }} — {{ b.end_time.slice(0, 5) }}
               </p>
             </div>
             <span
@@ -656,78 +630,20 @@ function formatTime(t: string) {
       </div>
     </div>
 
-    <!-- Deploy section -->
-    <div
-      v-if="tenantStore.config?.subscription_status === 'pending_deploy'"
-      class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 flex items-center gap-3"
-    >
-      <div class="w-2 h-2 bg-blue-400 rounded-full animate-pulse shrink-0" />
-      <p class="text-sm text-blue-700">{{ t('dashboard.deploy.pending') }}</p>
-    </div>
-    <div v-else-if="tenantStore.config && ['trialing', 'active'].includes(tenantStore.config.subscription_status)" class="mb-6">
-      <div v-if="deploySuccess" class="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
-        <p class="text-sm text-green-700">{{ deploySuccess }}</p>
+    <!-- Sajt klijenta -->
+    <div v-if="siteUrl" class="bg-white border border-gray-100 rounded-xl p-4 mb-6 flex items-center justify-between gap-4">
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-gray-900">{{ t('dashboard.site.title') }}</p>
+        <p class="text-xs text-gray-400 mt-0.5 truncate">{{ siteUrl }}</p>
       </div>
-      <div v-else-if="!showDeployModal" class="bg-white border border-gray-100 rounded-xl p-4 flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-gray-900">{{ t('dashboard.deploy.title') }}</p>
-          <p class="text-xs text-gray-400 mt-0.5">{{ t('dashboard.deploy.subtitle') }}</p>
-        </div>
-        <button
-          @click="showDeployModal = true"
-          class="text-sm font-medium px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shrink-0 ml-4"
-        >
-          {{ t('dashboard.deploy.btn') }}
-        </button>
-      </div>
-
-      <div v-else class="bg-white border border-indigo-200 rounded-xl p-5 space-y-4">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm font-semibold text-gray-900">{{ t('dashboard.deploy.modalTitle') }}</h3>
-          <button @click="showDeployModal = false; deployError = ''" class="text-gray-400 hover:text-gray-600 text-lg leading-none">×</button>
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.deploy.subdomain') }}</label>
-          <div class="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-            <input
-              v-model="deployForm.subdomain"
-              type="text"
-              :placeholder="t('dashboard.deploy.subdomainPlaceholder')"
-              :disabled="!!deployForm.custom_domain"
-              class="flex-1 px-3 py-2.5 text-sm focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
-            />
-            <span class="px-3 py-2.5 bg-gray-50 text-gray-400 text-xs border-l border-gray-200">.{{ platformHost }}</span>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <div class="flex-1 h-px bg-gray-200" />
-          <span class="text-xs text-gray-400">{{ t('common.or') }}</span>
-          <div class="flex-1 h-px bg-gray-200" />
-        </div>
-
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.deploy.customDomain') }}</label>
-          <input
-            v-model="deployForm.custom_domain"
-            type="text"
-            :placeholder="t('dashboard.deploy.customDomainPlaceholder')"
-            :disabled="!!deployForm.subdomain"
-            class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
-          />
-        </div>
-
-        <p v-if="deployError" class="text-red-500 text-xs">{{ deployError }}</p>
-
-        <button
-          @click="handleDeployRequest"
-          :disabled="deployLoading"
-          class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
-        >
-          {{ deployLoading ? t('dashboard.deploy.sending') : t('dashboard.deploy.send') }}
-        </button>
-      </div>
+      <a
+        :href="siteUrl"
+        target="_blank"
+        rel="noopener"
+        class="text-sm font-medium px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shrink-0"
+      >
+        {{ t('dashboard.site.open') }}
+      </a>
     </div>
 
     <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>

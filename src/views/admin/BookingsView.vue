@@ -6,8 +6,11 @@ import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { adminApi } from '@/api/admin'
 import { useAdminContextStore } from '@/stores/adminContext'
 import type { Booking } from '@/api/booking'
+import { formatPrice } from '@/lib/price'
+import { useTenantStore } from '@/stores/tenant'
 
 const { t, locale } = useI18n()
+const tenantStore = useTenantStore()
 const { confirm } = useConfirm()
 const adminContext = useAdminContextStore()
 const bookings = ref<Booking[]>([])
@@ -52,7 +55,7 @@ const filtered = computed(() => {
 })
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString(locale.value === 'sr' ? 'sr-RS' : 'en-US', {
+  return new Date(date).toLocaleDateString(locale.value === 'sr' ? 'sr-Latn-RS' : 'en-US', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -102,7 +105,10 @@ function formatDate(date: string) {
         </div>
 
         <div class="text-xs text-gray-500 space-y-0.5">
-          <p>{{ booking.slot.worker.name }} · {{ formatDate(booking.slot.date) }} · {{ booking.slot.start_time.slice(0, 5) }}</p>
+          <p>{{ booking.slot.worker.name }} · {{ formatDate(booking.slot.date) }} · {{ booking.start_time.slice(0, 5) }}</p>
+          <p v-if="booking.service" class="text-gray-700">
+            {{ booking.service.name }}<template v-if="booking.service.price"> · {{ formatPrice(booking.service.price, locale, tenantStore.config?.currency) }}</template>
+          </p>
           <p v-if="booking.note" class="text-gray-400 italic">{{ booking.note }}</p>
         </div>
 

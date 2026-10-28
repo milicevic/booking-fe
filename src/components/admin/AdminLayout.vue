@@ -7,6 +7,7 @@ import { useTenantStore } from '@/stores/tenant'
 import { useAdminContextStore } from '@/stores/adminContext'
 import SubscriptionBanner from '@/components/SubscriptionBanner.vue'
 import LangSwitcher from '@/components/LangSwitcher.vue'
+import TenantLogo from '@/components/TenantLogo.vue'
 
 const { t } = useI18n()
 
@@ -75,7 +76,7 @@ const navItems = computed(() => [
 
           <!-- Client / worker -->
           <template v-else>
-            <img v-if="tenant.logoUrl" :src="tenant.logoUrl" alt="logo" class="h-6 w-auto" />
+            <TenantLogo :src="tenant.logoUrl" :size="24" />
             <span class="font-semibold text-gray-900">{{ tenant.appName }}</span>
           </template>
         </div>

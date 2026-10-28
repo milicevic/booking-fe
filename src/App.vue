@@ -3,6 +3,7 @@ import { onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTenantStore } from '@/stores/tenant'
 import ConfirmModal from '@/components/ConfirmModal.vue'
+import ToastContainer from '@/components/ToastContainer.vue'
 
 const auth = useAuthStore()
 const tenant = useTenantStore()
@@ -30,4 +31,5 @@ onMounted(async () => {
 <template>
   <RouterView />
   <ConfirmModal />
+  <ToastContainer />
 </template>

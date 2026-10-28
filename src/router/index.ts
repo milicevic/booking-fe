@@ -1,14 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { isPlatformHost } from '@/lib/domain'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     // Javne rute
+    // Na glavnoj platformi '/' je landing, na tenant domeni booking forma
     {
       path: '/',
       name: 'booking',
-      component: () => import('@/views/booking/BookingView.vue'),
+      component: () =>
+        isPlatformHost() ? import('@/views/LandingView.vue') : import('@/views/booking/BookingView.vue'),
     },
     {
       path: '/confirmation',

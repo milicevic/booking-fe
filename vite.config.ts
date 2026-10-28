@@ -1,5 +1,5 @@
-import { fileURLToPath, URL } from 'node:url'
 import { existsSync, readFileSync } from 'node:fs'
+import path from "path"
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -16,17 +16,25 @@ export default defineConfig({
     vue(),
   ],
   server: {
+    host: true,
     https: httpsConfig,
+    hmr: {
+      protocol: 'wss',
+    },
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+      '/storage': {
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },
   },
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': path.resolve(__dirname, "./src"),
     },
   },
   optimizeDeps: {

@@ -47,7 +47,7 @@ async function markAllRead() {
 
 function formatDate(dateStr: string) {
   return new Date(dateStr + 'T00:00:00').toLocaleDateString(
-    locale.value === 'sr' ? 'sr-RS' : 'en-US',
+    locale.value === 'sr' ? 'sr-Latn-RS' : 'en-US',
     { day: 'numeric', month: 'short' }
   )
 }
@@ -108,7 +108,7 @@ function notifLabel(n: Notification) {
           </p>
         </div>
         <span class="text-[10px] text-gray-300 shrink-0 mt-0.5">
-          {{ new Date(n.created_at).toLocaleDateString(locale === 'sr' ? 'sr-RS' : 'en-US', { day: 'numeric', month: 'short' }) }}
+          {{ new Date(n.created_at).toLocaleDateString(locale === 'sr' ? 'sr-Latn-RS' : 'en-US', { day: 'numeric', month: 'short' }) }}
         </span>
       </div>
     </div>

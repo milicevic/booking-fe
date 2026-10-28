@@ -7,6 +7,7 @@ import { adminApi } from '@/api/admin'
 import { useAdminContextStore } from '@/stores/adminContext'
 import type { Worker } from '@/api/admin'
 import type { Slot } from '@/api/booking'
+import { apiErrorMessage } from '@/lib/apiError'
 
 const { t, locale } = useI18n()
 const { confirm } = useConfirm()
@@ -64,8 +65,8 @@ async function handleCreate() {
     form.value = { worker_id: '', date: '', start_time: '', end_time: '' }
     showForm.value = false
     await fetchSlots()
-  } catch {
-    error.value = t('slots.addError')
+  } catch (e) {
+    error.value = apiErrorMessage(e, t('slots.addError'))
   } finally {
     submitting.value = false
   }
@@ -78,7 +79,7 @@ async function handleDelete(slot: Slot) {
 }
 
 function formatDate(date: string) {
-  return new Date(date.slice(0, 10) + 'T00:00:00').toLocaleDateString(locale.value === 'sr' ? 'sr-RS' : 'en-US', {
+  return new Date(date.slice(0, 10) + 'T00:00:00').toLocaleDateString(locale.value === 'sr' ? 'sr-Latn-RS' : 'en-US', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',

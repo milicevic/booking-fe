@@ -1,13 +1,22 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { slotsApi } from '@/api/slots'
 import { bookingApi } from '@/api/booking'
-import type { Slot, Service } from '@/api/booking'
+import type { BookableTime, Slot, Service } from '@/api/booking'
+import { useTenantStore } from '@/stores/tenant'
+import { useToast } from '@/composables/useToast'
+import TenantLogo from '@/components/TenantLogo.vue'
+import MyBookings from '@/components/booking/MyBookings.vue'
+import { rememberBooking } from '@/lib/myBookings'
+import { apiErrorMessage } from '@/lib/apiError'
+import { formatPrice } from '@/lib/price'
 
 const { t, locale } = useI18n()
 const router = useRouter()
+const tenant = useTenantStore()
+const toast = useToast()
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const allSlots = ref<Slot[]>([])
@@ -19,7 +28,7 @@ const error = ref('')
 const selectedWorkerId = ref<number | null>(null)
 const selectedService = ref<Service | null>(null)
 const selectedDate = ref<string | null>(null)
-const selectedSlot = ref<Slot | null>(null)
+const selectedSlot = ref<BookableTime | null>(null)
 
 const form = ref({
   customer_name: '',
@@ -66,16 +75,40 @@ function pickService(service: Service) {
   error.value = ''
 }
 
-// ─── Slots filtered by worker ─────────────────────────────────────────────────
-const workerSlots = computed(() => {
-  if (!selectedWorkerId.value) return []
-  return allSlots.value.filter(s => s.worker.id === selectedWorkerId.value)
-})
+// ─── Vremena za izabranog radnika i uslugu ────────────────────────────────────
+// Backend računa vremena prema trajanju usluge, uključujući rupe posle kraćih rezervacija
+const times = ref<BookableTime[]>([])
+const timesLoading = ref(false)
+const readyForTimes = computed(() =>
+  !!selectedWorkerId.value && (workerServices.value.length === 0 || !!selectedService.value)
+)
+
+async function loadTimes() {
+  if (!readyForTimes.value || !selectedWorkerId.value) {
+    times.value = []
+    return
+  }
+  timesLoading.value = true
+  try {
+    const { data } = await slotsApi.getTimes({
+      worker_id: selectedWorkerId.value,
+      ...(selectedService.value ? { service_id: selectedService.value.id } : {}),
+    })
+    times.value = data
+  } catch (e) {
+    times.value = []
+    error.value = apiErrorMessage(e, t('booking.loadError'))
+  } finally {
+    timesLoading.value = false
+  }
+}
+
+watch([selectedWorkerId, selectedService], loadTimes)
 
 // ─── Calendar ─────────────────────────────────────────────────────────────────
 const calendarBase = ref(new Date())
 
-const jsLocale = computed(() => locale.value === 'sr' ? 'sr-RS' : 'en-US')
+const jsLocale = computed(() => locale.value === 'sr' ? 'sr-Latn-RS' : 'en-US')
 
 const monthLabel = computed(() =>
   calendarBase.value.toLocaleDateString(jsLocale.value, { month: 'long', year: 'numeric' })
@@ -96,7 +129,7 @@ const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0'
 
 const availableDates = computed(() => {
   const set = new Set<string>()
-  for (const s of workerSlots.value) set.add(s.date.slice(0, 10))
+  for (const time of times.value) set.add(time.date.slice(0, 10))
   return set
 })
 
@@ -124,10 +157,10 @@ const calendarDays = computed(() => {
   return days
 })
 
-const slotsForDate = computed(() =>
+const timesForDate = computed(() =>
   selectedDate.value
-    ? workerSlots.value
-        .filter(s => s.date.slice(0, 10) === selectedDate.value)
+    ? times.value
+        .filter(time => time.date.slice(0, 10) === selectedDate.value)
         .sort((a, b) => a.start_time.localeCompare(b.start_time))
     : []
 )
@@ -151,8 +184,8 @@ function pickDate(day: { date: string; available: boolean; past: boolean }) {
   error.value = ''
 }
 
-function pickSlot(slot: Slot) {
-  selectedSlot.value = slot
+function pickSlot(time: BookableTime) {
+  selectedSlot.value = time
   error.value = ''
 }
 
@@ -167,8 +200,8 @@ onMounted(async () => {
   try {
     const { data } = await slotsApi.getAvailable()
     allSlots.value = data
-  } catch {
-    error.value = t('booking.loadError')
+  } catch (e) {
+    error.value = apiErrorMessage(e, t('booking.loadError'))
   } finally {
     loading.value = false
   }
@@ -185,19 +218,20 @@ async function handleSubmit() {
 
   try {
     const { data } = await bookingApi.create({
-      slot_id: selectedSlot.value.id,
+      slot_id: selectedSlot.value.slot_id,
+      start_time: selectedSlot.value.start_time.slice(0, 5),
       ...form.value,
       ...(selectedService.value ? { service_id: selectedService.value.id } : {}),
     })
+    rememberBooking(data.token)
     router.push({ name: 'confirmation', query: { token: data.token } })
-  } catch (e: any) {
-    if (e.response?.status === 409) {
-      error.value = t('booking.slotTaken')
+  } catch (e) {
+    if ((e as { response?: { status?: number } }).response?.status === 409) {
+      toast.error(t('booking.slotTaken'))
       selectedSlot.value = null
-      const { data } = await slotsApi.getAvailable()
-      allSlots.value = data
+      await loadTimes()
     } else {
-      error.value = t('booking.submitError')
+      error.value = apiErrorMessage(e, t('booking.submitError'))
     }
   } finally {
     submitting.value = false
@@ -210,8 +244,14 @@ async function handleSubmit() {
     <div class="max-w-4xl mx-auto px-4 py-8">
 
       <div class="mb-6">
+        <div class="flex items-center gap-3 mb-2">
+          <TenantLogo :src="tenant.logoUrl" :size="32" />
+          <span class="font-semibold text-gray-900 text-lg">{{ tenant.appName }}</span>
+        </div>
         <h1 class="text-2xl font-semibold text-gray-900">{{ t('booking.title') }}</h1>
       </div>
+
+      <MyBookings />
 
       <div v-if="loading" class="text-center py-16 text-gray-400">
         {{ t('common.loading') }}
@@ -262,13 +302,13 @@ async function handleSubmit() {
               class="px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left"
             >
               <span>{{ service.name }}</span>
-              <span v-if="service.price" class="ml-1.5 font-normal opacity-70">{{ service.price }}</span>
+              <span v-if="service.price" class="ml-1.5 font-normal opacity-70">{{ formatPrice(service.price, locale, tenant.config?.currency) }}</span>
             </button>
           </div>
         </div>
 
         <!-- Step 3+: Calendar + slots -->
-        <div v-if="selectedWorkerId && (workerServices.length === 0 || selectedService)" class="flex flex-col lg:flex-row gap-6">
+        <div v-if="readyForTimes" class="flex flex-col lg:flex-row gap-6">
 
           <!-- Calendar -->
           <div class="lg:w-80 shrink-0">
@@ -342,15 +382,15 @@ async function handleSubmit() {
                 </p>
               </div>
 
-              <div v-if="slotsForDate.length === 0"
+              <div v-if="timesForDate.length === 0"
                 class="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-400 text-sm">
                 {{ t('booking.noSlotsDay') }}
               </div>
 
               <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <button
-                  v-for="slot in slotsForDate"
-                  :key="slot.id"
+                  v-for="slot in timesForDate"
+                  :key="`${slot.slot_id}-${slot.start_time}`"
                   @click="pickSlot(slot)"
                   class="bg-white border border-gray-200 rounded-xl p-4 text-left hover:border-indigo-400 hover:shadow-sm transition-all"
                 >
@@ -367,7 +407,7 @@ async function handleSubmit() {
                 <div>
                   <p class="text-sm font-medium text-indigo-900">
                     {{ workers.find(w => w.id === selectedWorkerId)?.name }}
-                    <span v-if="selectedService" class="font-normal text-indigo-600"> · {{ selectedService.name }}<template v-if="selectedService.price"> ({{ selectedService.price }})</template></span>
+                    <span v-if="selectedService" class="font-normal text-indigo-600"> · {{ selectedService.name }}<template v-if="selectedService.price"> ({{ formatPrice(selectedService.price, locale, tenant.config?.currency) }})</template></span>
                   </p>
                   <p class="text-sm text-indigo-700 capitalize mt-0.5">
                     {{ formatDate(selectedSlot.date) }}
@@ -428,10 +468,10 @@ async function handleSubmit() {
           </div>
         </div>
 
-        <!-- No worker selected -->
+        <!-- Radnik ili usluga još nisu izabrani -->
         <div v-else class="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-400">
-          <p class="text-2xl mb-2">👤</p>
-          <p class="text-sm">{{ t('booking.workerPlaceholder') }}</p>
+          <p class="text-2xl mb-2">{{ selectedWorkerId ? '✂️' : '👤' }}</p>
+          <p class="text-sm">{{ selectedWorkerId ? t('booking.servicePlaceholder') : t('booking.workerPlaceholder') }}</p>
         </div>
 
       </div>

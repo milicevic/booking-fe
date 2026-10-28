@@ -1,4 +1,5 @@
 import process from 'node:process'
+import { existsSync } from 'node:fs'
 import { defineConfig, devices } from '@playwright/test'
 
 /**
@@ -10,6 +11,9 @@ import { defineConfig, devices } from '@playwright/test'
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
+// vite.config.ts uključuje HTTPS kada postoji lokalni sertifikat u .cert/
+const protocol = existsSync('.cert/key.pem') ? 'https' : 'http'
+
 export default defineConfig({
   testDir: './e2e',
   /* Maximum time one test can run for. */
@@ -34,7 +38,8 @@ export default defineConfig({
     /* Maximum time each action such as `click()` can take. Defaults to 0 (no limit). */
     actionTimeout: 0,
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: process.env.CI ? 'http://localhost:4173' : 'http://localhost:5173',
+    baseURL: process.env.CI ? `${protocol}://localhost:4173` : `${protocol}://localhost:5173`,
+    ignoreHTTPSErrors: true,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',

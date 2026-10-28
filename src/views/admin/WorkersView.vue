@@ -6,6 +6,7 @@ import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { adminApi } from '@/api/admin'
 import { useAdminContextStore } from '@/stores/adminContext'
 import type { Worker } from '@/api/admin'
+import { apiErrorMessage } from '@/lib/apiError'
 
 const { t } = useI18n()
 const { confirm } = useConfirm()
@@ -50,8 +51,8 @@ async function handleCreate() {
     form.value = { name: '', email: '', phone: '' }
     showForm.value = false
     await fetchWorkers()
-  } catch {
-    error.value = t('workers.addError')
+  } catch (e) {
+    error.value = apiErrorMessage(e, t('workers.addError'))
   } finally {
     submitting.value = false
   }

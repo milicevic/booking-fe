@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { tenantApi } from '@/api/tenant'
 import { useAuthStore } from '@/stores/auth'
+import { apiErrorMessage } from '@/lib/apiError'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -27,8 +28,8 @@ async function handleSubmit() {
     const { data } = await tenantApi.acceptInvite(token, form)
     auth.setSession(data.token as string, data.client as any)
     router.push({ name: 'dashboard' })
-  } catch (e: any) {
-    error.value = e.response?.data?.message ?? t('auth.inviteError')
+  } catch (e) {
+    error.value = apiErrorMessage(e, t('auth.inviteError'))
   } finally {
     loading.value = false
   }
