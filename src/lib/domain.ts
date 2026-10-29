@@ -2,8 +2,13 @@
 export function isPlatformHost(): boolean {
   if (import.meta.env.VITE_TENANT_SUBDOMAIN) return false
 
+  return isPlatformHostname(window.location.hostname)
+}
+
+// www.slotres.click je isto što i slotres.click, a ne salon sa poddomenom "www"
+export function isPlatformHostname(hostname: string): boolean {
   const platformHost = import.meta.env.VITE_PLATFORM_HOST
-  return !!platformHost && window.location.hostname === platformHost
+  return !!platformHost && (hostname === platformHost || hostname === `www.${platformHost}`)
 }
 
 // Adresa sajta klijenta (npr. https://salon-ana.slotres.click). Port se zadržava zbog lokalnog dev servera.

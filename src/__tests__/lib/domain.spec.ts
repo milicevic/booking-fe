@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { isPlatformHost, tenantUrl } from '@/lib/domain'
+import { isPlatformHost, isPlatformHostname, tenantUrl } from '@/lib/domain'
 
 describe('isPlatformHost', () => {
   beforeEach(() => {
@@ -37,5 +37,14 @@ describe('tenantUrl', () => {
 
     expect(tenantUrl('salon-ana')).toBe(`${protocol}//salon-ana.slotres.click${portPart}`)
     expect(tenantUrl('salon-ana', '/admin/login')).toBe(`${protocol}//salon-ana.slotres.click${portPart}/admin/login`)
+  })
+})
+
+describe('isPlatformHostname', () => {
+  it('treats www as the main platform, not as a client', () => {
+    vi.stubEnv('VITE_PLATFORM_HOST', 'slotres.click')
+    expect(isPlatformHostname('slotres.click')).toBe(true)
+    expect(isPlatformHostname('www.slotres.click')).toBe(true)
+    expect(isPlatformHostname('salon-ana.slotres.click')).toBe(false)
   })
 })

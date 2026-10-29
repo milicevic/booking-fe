@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isPlatformHostname } from '@/lib/domain'
 import { onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTenantStore } from '@/stores/tenant'
@@ -17,7 +18,7 @@ function isTenantDomain(): boolean {
   // Sve ostalo je tenant domena
   const platformHost = import.meta.env.VITE_PLATFORM_HOST
   if (!platformHost) return false
-  return window.location.hostname !== platformHost
+  return !isPlatformHostname(window.location.hostname)
 }
 
 onMounted(async () => {

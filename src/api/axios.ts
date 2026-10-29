@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { i18n } from '@/i18n'
+import { isPlatformHostname } from '@/lib/domain'
 
 function resolveTenantHeader(): { key: string; value: string } | null {
   // Dev: eksplicitno postavljen subdomen u .env (override)
@@ -19,7 +20,7 @@ function resolveTenantHeader(): { key: string; value: string } | null {
   if (!platformHost) return null
 
   // Na glavnoj platformi — admin, bez tenant headera
-  if (hostname === platformHost) return null
+  if (isPlatformHostname(hostname)) return null
 
   // Subdomena platforme (npr. moj-salon.booking.app)
   if (hostname.endsWith('.' + platformHost)) {
