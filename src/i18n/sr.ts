@@ -124,7 +124,7 @@ export default {
     businessNamePlaceholder: 'npr. Frizerski salon Ana',
     businessNameHint: 'Ovaj naziv vide vaši klijenti na stranici za zakazivanje.',
     yourNamePlaceholder: 'npr. Ana Petrović',
-    emailPlaceholder: 'vas@email.com',
+    emailPlaceholder: "vas{'@'}email.com",
     addressLabel: 'Adresa vaše stranice',
     addressPlaceholder: 'naziv-firme',
     customizeLater: 'Temu, boje i logo podešavate posle prijave, u delu Brendiranje.',

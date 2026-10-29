@@ -124,7 +124,7 @@ export default {
     businessNamePlaceholder: 'e.g. Ana Hair Studio',
     businessNameHint: 'Your clients will see this name on your booking page.',
     yourNamePlaceholder: 'e.g. Ana Smith',
-    emailPlaceholder: 'you@email.com',
+    emailPlaceholder: "you{'@'}email.com",
     addressLabel: 'Your page address',
     addressPlaceholder: 'business-name',
     customizeLater: 'You can set your theme, colors and logo after logging in, under Branding.',
