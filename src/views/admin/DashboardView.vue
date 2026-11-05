@@ -3,13 +3,23 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import NotificationList from '@/components/NotificationList.vue'
+import { ChevronLeftIcon, ChevronRightIcon, XIcon } from '@lucide/vue'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
 import { adminApi } from '@/api/admin'
 import { tenantUrl } from '@/lib/domain'
 import { useAuthStore } from '@/stores/auth'
 import { useTenantStore } from '@/stores/tenant'
 import { useAdminContextStore } from '@/stores/adminContext'
 import type { Worker, AdminClient } from '@/api/admin'
-import type { Slot } from '@/api/booking'
+import type { Booking, Slot } from '@/api/booking'
+import { apiErrorMessage } from '@/lib/apiError'
 
 const { t, locale } = useI18n()
 
@@ -264,7 +274,7 @@ async function handleGenerate() {
         date: s.date,
         start_time: s.start,
         end_time: s.end,
-      } as any)
+      })
     }
     generateSuccess.value = t('dashboard.generate.success', { count: toCreate.length })
     await fetchSlots()
@@ -276,8 +286,6 @@ async function handleGenerate() {
 }
 
 // ─── Worker dashboard ─────────────────────────────────────────────────────────
-import type { Booking } from '@/api/booking'
-import { apiErrorMessage } from '@/lib/apiError'
 
 const bookings = ref<Booking[]>([])
 
@@ -337,546 +345,387 @@ function formatTime(t: string) {
   <AdminLayout>
 
     <!-- ── Admin: client list ─────────────────────────────────────────── -->
-    <template v-if="isAdmin">
+    <template v-if="isAdmin && !adminContext.selectedClient">
+      <h1 class="text-xl font-semibold mb-6">{{ t('dashboard.admin.clients') }}</h1>
 
-      <!-- Drilled into a client -->
-      <template v-if="adminContext.selectedClient">
-    <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>
+      <div v-if="loading" class="text-muted-foreground text-sm">{{ t('common.loading') }}</div>
 
-        <div v-else class="flex flex-col lg:flex-row gap-6">
-          <!-- ── Calendar ─────────────────────────────────────────────── -->
-          <div class="lg:w-1/2 space-y-4">
-            <div class="bg-white rounded-xl border border-gray-100 p-4">
-              <div class="flex items-center justify-between mb-4">
-                <button @click="prevMonth" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">‹</button>
-                <span class="text-sm font-medium text-gray-900 capitalize">{{ monthLabel }}</span>
-                <button @click="nextMonth" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">›</button>
-              </div>
-              <div class="grid grid-cols-7 mb-1">
-                <div v-for="d in calDays" :key="d"
-                  class="text-center text-xs text-gray-400 font-medium py-1">{{ d }}</div>
-              </div>
-              <div class="grid grid-cols-7 gap-1">
-                <div v-for="(day, i) in calendarDays" :key="i">
-                  <div v-if="!day" class="h-12" />
-                  <button v-else @click="selectDate(day.date)"
-                    :class="[
-                      'w-full h-12 rounded-lg flex flex-col items-center justify-center text-xs transition-colors',
-                      selectedDate === day.date
-                        ? 'bg-indigo-600 text-white'
-                        : day.slotCount > 0
-                          ? 'bg-indigo-50 hover:bg-indigo-100 text-gray-900'
-                          : 'hover:bg-gray-50 text-gray-500',
-                    ]"
-                  >
-                    <span class="font-medium leading-none">{{ day.day }}</span>
-                    <span v-if="day.slotCount > 0" class="text-[10px] leading-none mt-0.5 opacity-75">
-                      {{ day.availableCount }}/{{ day.slotCount }}
-                    </span>
-                  </button>
-                </div>
-              </div>
-              <p class="text-xs text-gray-400 mt-3 text-center">{{ t('dashboard.slotsLegend') }}</p>
-            </div>
-
-            <div v-if="selectedDate" class="bg-white rounded-xl border border-gray-100 p-4">
-              <h2 class="text-sm font-medium text-gray-700 mb-3 capitalize">
-                {{ formatDateLong(selectedDate) }}
-              </h2>
-              <div v-if="selectedDaySlots.length === 0" class="text-gray-400 text-sm text-center py-4">{{ t('dashboard.noSlots') }}</div>
-              <div v-else class="space-y-1.5">
-                <div v-for="slot in selectedDaySlots" :key="slot.id"
-                  class="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50">
-                  <span class="text-sm text-gray-900">{{ formatTime(slot.start_time) }} — {{ formatTime(slot.end_time) }}</span>
-                  <div class="flex items-center gap-2">
-                    <span class="text-xs text-gray-400">{{ slot.worker.name }}</span>
-                    <span :class="slot.is_available ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'"
-                      class="text-[10px] font-medium px-2 py-0.5 rounded-full">
-                      {{ slot.is_available ? t('dashboard.slotAvailable') : t('dashboard.slotTaken') }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- ── Slot generator ──────────────────────────────────────── -->
-          <div class="lg:w-1/2">
-            <div class="bg-white rounded-xl border border-gray-100 p-5 space-y-5">
-              <h2 class="text-sm font-semibold text-gray-900">{{ t('dashboard.generate.title') }}</h2>
-              <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.worker') }} *</label>
-                <select v-model="form.worker_id"
-                  class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                  <option value="">{{ t('dashboard.generate.workerPlaceholder') }}</option>
-                  <option v-for="w in workers" :key="w.id" :value="w.id">{{ w.name }}</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.period') }} *</label>
-                <div class="grid grid-cols-2 gap-2">
-                  <input v-model="form.date_from" type="date" :min="new Date().toISOString().slice(0,10)"
-                    class="border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                  <input v-model="form.date_to" type="date" :min="form.date_from"
-                    class="border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                </div>
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.weekdays') }}</label>
-                <div class="flex gap-1.5 flex-wrap">
-                  <button v-for="d in WEEKDAYS" :key="d.value" @click="toggleWeekday(d.value)"
-                    :class="form.weekdays.includes(d.value) ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
-                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">{{ d.label }}</button>
-                </div>
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.workHours') }}</label>
-                <div class="flex items-center gap-2">
-                  <input v-model="form.work_start" type="time"
-                    class="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                  <span class="text-gray-400 text-sm">{{ t('dashboard.generate.to') }}</span>
-                  <input v-model="form.work_end" type="time"
-                    class="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                </div>
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.duration') }}</label>
-                <div class="flex gap-1.5 flex-wrap">
-                  <button v-for="dur in DURATIONS" :key="dur" @click="form.slot_duration = dur"
-                    :class="form.slot_duration === dur ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
-                    class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">{{ dur }}min</button>
-                </div>
-              </div>
-              <div>
-                <div class="flex items-center justify-between mb-1.5">
-                  <label class="text-xs font-medium text-gray-600">{{ t('dashboard.generate.breaks') }}</label>
-                  <button @click="addBreak" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors">{{ t('dashboard.generate.addBreak') }}</button>
-                </div>
-                <div class="space-y-2">
-                  <div v-for="(br, i) in form.breaks" :key="i" class="flex items-center gap-2">
-                    <input v-model="br.start" type="time"
-                      class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    <span class="text-gray-400 text-xs">—</span>
-                    <input v-model="br.end" type="time"
-                      class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    <button @click="removeBreak(i)" class="text-gray-300 hover:text-red-400 transition-colors text-lg leading-none shrink-0">×</button>
-                  </div>
-                  <p v-if="form.breaks.length === 0" class="text-xs text-gray-400">{{ t('dashboard.generate.noBreaks') }}</p>
-                </div>
-              </div>
-              <div class="border-t border-gray-100 pt-4 space-y-3">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs text-gray-500">{{ t('dashboard.generate.willGenerate') }}</span>
-                  <span class="text-sm font-semibold text-indigo-600">{{ preview }} {{ t('dashboard.generate.slots') }}</span>
-                </div>
-                <p v-if="generateError" class="text-red-500 text-xs">{{ generateError }}</p>
-                <p v-if="generateSuccess" class="text-green-600 text-xs font-medium">{{ generateSuccess }}</p>
-                <button @click="handleGenerate" :disabled="generating || preview === 0"
-                  class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors">
-                  {{ generating ? t('dashboard.generate.generating') : t('dashboard.generate.generateBtn') }}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </template>
-
-      <!-- Client list -->
-      <template v-else>
-        <h1 class="text-xl font-semibold text-gray-900 mb-6">{{ t('dashboard.admin.clients') }}</h1>
-
-        <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>
-
-        <div v-else class="space-y-3">
-          <div v-if="clients.length === 0" class="bg-white rounded-xl border border-gray-100 p-6 text-center text-gray-400 text-sm">
+      <div v-else class="space-y-3">
+        <Card v-if="clients.length === 0">
+          <CardContent class="text-center text-muted-foreground text-sm">
             {{ t('dashboard.admin.noClients') }}
-          </div>
+          </CardContent>
+        </Card>
 
-          <div
-            v-for="c in clients"
-            :key="c.id"
-            class="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between"
-          >
+        <Card v-for="c in clients" :key="c.id" size="sm">
+          <CardContent class="flex items-center justify-between">
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2">
-                <p class="text-sm font-medium text-gray-900 truncate">{{ c.name }}</p>
-                <span v-if="c.is_suspended"
-                  class="text-[10px] bg-red-100 text-red-600 font-medium px-2 py-0.5 rounded-full shrink-0">
+                <p class="text-sm font-medium truncate">{{ c.name }}</p>
+                <Badge v-if="c.is_suspended" variant="destructive" class="shrink-0">
                   {{ t('nav.suspended') }}
-                </span>
+                </Badge>
               </div>
-              <p class="text-xs text-gray-400 mt-0.5">{{ c.email }} · {{ t('dashboard.admin.workers', { count: c.workers_count }) }}</p>
+              <p class="text-xs text-muted-foreground mt-0.5">{{ c.email }} · {{ t('dashboard.admin.workers', { count: c.workers_count }) }}</p>
             </div>
 
             <div class="flex items-center gap-2 ml-4 shrink-0">
-              <button
-                @click="toggleSuspend(c)"
+              <Button
+                v-if="c.is_suspended"
+                size="sm"
+                variant="outline"
+                class="border-green-200 bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-700"
                 :disabled="suspending === c.id"
-                :class="c.is_suspended
-                  ? 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200'
-                  : 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200'"
-                class="text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
+                @click="toggleSuspend(c)"
               >
-                {{ suspending === c.id ? '...' : c.is_suspended ? t('dashboard.admin.activate') : t('dashboard.admin.suspend') }}
-              </button>
-              <button
+                {{ suspending === c.id ? '...' : t('dashboard.admin.activate') }}
+              </Button>
+              <Button
+                v-else
+                size="sm"
+                variant="destructive"
+                :disabled="suspending === c.id"
+                @click="toggleSuspend(c)"
+              >
+                {{ suspending === c.id ? '...' : t('dashboard.admin.suspend') }}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                class="border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary"
                 @click="openClient(c)"
-                class="text-xs font-medium px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
               >
                 {{ t('dashboard.admin.open') }}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
-      </template>
+          </CardContent>
+        </Card>
+      </div>
     </template>
 
     <!-- ── Worker dashboard ──────────────────────────────────────────── -->
     <template v-else-if="isWorker">
-      <h1 class="text-xl font-semibold text-gray-900 mb-6">{{ t('dashboard.worker.welcome', { name: auth.client?.name }) }}</h1>
+      <h1 class="text-xl font-semibold mb-6">{{ t('dashboard.worker.welcome', { name: auth.client?.name }) }}</h1>
 
       <NotificationList />
 
-      <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>
+      <div v-if="loading" class="text-muted-foreground text-sm">{{ t('common.loading') }}</div>
 
       <template v-else>
         <div class="grid grid-cols-2 gap-3 mb-6">
-          <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
-            <p class="text-2xl font-semibold text-gray-900">{{ todayBookings.length }}</p>
-            <p class="text-xs text-gray-500 mt-0.5">{{ t('dashboard.worker.today') }}</p>
-          </div>
-          <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
-            <p class="text-2xl font-semibold text-indigo-600">{{ upcomingBookings.length }}</p>
-            <p class="text-xs text-gray-500 mt-0.5">{{ t('dashboard.worker.upcoming') }}</p>
-          </div>
+          <Card size="sm">
+            <CardContent class="text-center">
+              <p class="text-2xl font-semibold">{{ todayBookings.length }}</p>
+              <p class="text-xs text-muted-foreground mt-0.5">{{ t('dashboard.worker.today') }}</p>
+            </CardContent>
+          </Card>
+          <Card size="sm">
+            <CardContent class="text-center">
+              <p class="text-2xl font-semibold text-primary">{{ upcomingBookings.length }}</p>
+              <p class="text-xs text-muted-foreground mt-0.5">{{ t('dashboard.worker.upcoming') }}</p>
+            </CardContent>
+          </Card>
         </div>
 
-        <h2 class="text-sm font-medium text-gray-500 mb-3">{{ t('dashboard.worker.today') }}</h2>
+        <h2 class="text-sm font-medium text-muted-foreground mb-3">{{ t('dashboard.worker.today') }}</h2>
         <div class="space-y-2 mb-6">
-          <div v-if="todayBookings.length === 0" class="bg-white rounded-xl border border-gray-100 p-4 text-center text-gray-400 text-sm">
-            {{ t('dashboard.worker.noToday') }}
-          </div>
-          <div
-            v-for="b in todayBookings"
-            :key="b.id"
-            class="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between"
-          >
-            <div>
-              <p class="text-sm font-medium text-gray-900">{{ b.customer_name }}</p>
-              <p class="text-xs text-gray-400 mt-0.5">
-                {{ b.start_time.slice(0, 5) }} — {{ b.end_time.slice(0, 5) }}
-              </p>
-            </div>
-            <span
-              :class="b.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'"
-              class="text-xs font-medium px-2.5 py-1 rounded-full"
-            >
-              {{ b.status === 'confirmed' ? t('dashboard.worker.confirmed') : t('dashboard.worker.pending') }}
-            </span>
-          </div>
+          <Card v-if="todayBookings.length === 0" size="sm">
+            <CardContent class="text-center text-muted-foreground text-sm">{{ t('dashboard.worker.noToday') }}</CardContent>
+          </Card>
+          <Card v-for="b in todayBookings" :key="b.id" size="sm">
+            <CardContent class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium">{{ b.customer_name }}</p>
+                <p class="text-xs text-muted-foreground mt-0.5">
+                  {{ b.start_time.slice(0, 5) }} — {{ b.end_time.slice(0, 5) }}
+                </p>
+              </div>
+              <Badge :class="b.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'">
+                {{ b.status === 'confirmed' ? t('dashboard.worker.confirmed') : t('dashboard.worker.pending') }}
+              </Badge>
+            </CardContent>
+          </Card>
         </div>
 
-        <h2 class="text-sm font-medium text-gray-500 mb-3">{{ t('dashboard.worker.upcomingTitle') }}</h2>
+        <h2 class="text-sm font-medium text-muted-foreground mb-3">{{ t('dashboard.worker.upcomingTitle') }}</h2>
         <div class="space-y-2">
-          <div v-if="upcomingBookings.length === 0" class="bg-white rounded-xl border border-gray-100 p-4 text-center text-gray-400 text-sm">
-            {{ t('dashboard.worker.noUpcoming') }}
-          </div>
-          <div
-            v-for="b in upcomingBookings"
-            :key="b.id"
-            class="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between"
-          >
-            <div>
-              <p class="text-sm font-medium text-gray-900">{{ b.customer_name }}</p>
-              <p class="text-xs text-gray-400 mt-0.5">
-                {{ formatDate(b.slot.date) }} · {{ b.start_time.slice(0, 5) }} — {{ b.end_time.slice(0, 5) }}
-              </p>
-            </div>
-            <span
-              :class="b.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'"
-              class="text-xs font-medium px-2.5 py-1 rounded-full"
-            >
-              {{ b.status === 'confirmed' ? t('dashboard.worker.confirmed') : t('dashboard.worker.pending') }}
-            </span>
-          </div>
+          <Card v-if="upcomingBookings.length === 0" size="sm">
+            <CardContent class="text-center text-muted-foreground text-sm">{{ t('dashboard.worker.noUpcoming') }}</CardContent>
+          </Card>
+          <Card v-for="b in upcomingBookings" :key="b.id" size="sm">
+            <CardContent class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium">{{ b.customer_name }}</p>
+                <p class="text-xs text-muted-foreground mt-0.5">
+                  {{ formatDate(b.slot.date) }} · {{ b.start_time.slice(0, 5) }} — {{ b.end_time.slice(0, 5) }}
+                </p>
+              </div>
+              <Badge :class="b.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'">
+                {{ b.status === 'confirmed' ? t('dashboard.worker.confirmed') : t('dashboard.worker.pending') }}
+              </Badge>
+            </CardContent>
+          </Card>
         </div>
       </template>
     </template>
 
-    <!-- ── Client dashboard ───────────────────────────────────────────── -->
+    <!-- ── Klijent, ili admin koji je otvorio klijenta: kalendar i generator termina ── -->
     <template v-else>
-    <NotificationList />
+      <template v-if="!isAdmin">
+        <NotificationList />
 
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-xl font-semibold text-gray-900">{{ t('dashboard.title') }}</h1>
+        <div class="flex items-center justify-between mb-6">
+          <h1 class="text-xl font-semibold">{{ t('dashboard.title') }}</h1>
 
-      <div class="flex items-center gap-3">
-        <span class="text-xs text-gray-500">
-          {{ autoConfirm ? t('dashboard.autoConfirm') : t('dashboard.manualConfirm') }}
-        </span>
-        <button
-          role="switch"
-          :aria-checked="autoConfirm"
-          @click="toggleAutoConfirm"
-          :disabled="savingSettings"
-          :class="autoConfirm ? 'bg-green-500' : 'bg-gray-200'"
-          class="relative inline-flex w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 cursor-pointer shrink-0"
-        >
-          <span
-            :class="autoConfirm ? 'translate-x-5' : 'translate-x-0'"
-            class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200"
-          />
-        </button>
-      </div>
-    </div>
-
-    <!-- Sajt klijenta -->
-    <div v-if="siteUrl" class="bg-white border border-gray-100 rounded-xl p-4 mb-6 flex items-center justify-between gap-4">
-      <div class="min-w-0">
-        <p class="text-sm font-medium text-gray-900">{{ t('dashboard.site.title') }}</p>
-        <p class="text-xs text-gray-400 mt-0.5 truncate">{{ siteUrl }}</p>
-      </div>
-      <a
-        :href="siteUrl"
-        target="_blank"
-        rel="noopener"
-        class="text-sm font-medium px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shrink-0"
-      >
-        {{ t('dashboard.site.open') }}
-      </a>
-    </div>
-
-    <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>
-
-    <div v-else class="flex flex-col lg:flex-row gap-6">
-
-      <!-- ── Calendar ─────────────────────────────────────────────── -->
-      <div class="lg:w-1/2 space-y-4">
-        <div class="bg-white rounded-xl border border-gray-100 p-4">
-          <div class="flex items-center justify-between mb-4">
-            <button @click="prevMonth" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">‹</button>
-            <span class="text-sm font-medium text-gray-900 capitalize">{{ monthLabel }}</span>
-            <button @click="nextMonth" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">›</button>
-          </div>
-
-          <div class="grid grid-cols-7 mb-1">
-            <div
-              v-for="d in calDays"
-              :key="d"
-              class="text-center text-xs text-gray-400 font-medium py-1"
-            >
-              {{ d }}
-            </div>
-          </div>
-
-          <div class="grid grid-cols-7 gap-1">
-            <div v-for="(day, i) in calendarDays" :key="i">
-              <div v-if="!day" class="h-12" />
-              <button
-                v-else
-                @click="selectDate(day.date)"
-                :class="[
-                  'w-full h-12 rounded-lg flex flex-col items-center justify-center text-xs transition-colors',
-                  selectedDate === day.date
-                    ? 'bg-indigo-600 text-white'
-                    : day.slotCount > 0
-                      ? 'bg-indigo-50 hover:bg-indigo-100 text-gray-900'
-                      : 'hover:bg-gray-50 text-gray-500',
-                ]"
-              >
-                <span class="font-medium leading-none">{{ day.day }}</span>
-                <span
-                  v-if="day.slotCount > 0"
-                  class="text-[10px] leading-none mt-0.5 opacity-75"
-                >
-                  {{ day.availableCount }}/{{ day.slotCount }}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          <p class="text-xs text-gray-400 mt-3 text-center">
-            {{ t('dashboard.slotsLegend') }}
-          </p>
-        </div>
-
-        <div v-if="selectedDate" class="bg-white rounded-xl border border-gray-100 p-4">
-          <h2 class="text-sm font-medium text-gray-700 mb-3 capitalize">
-            {{ formatDateLong(selectedDate) }}
-          </h2>
-
-          <div v-if="selectedDaySlots.length === 0" class="text-gray-400 text-sm text-center py-4">
-            {{ t('dashboard.noSlots') }}
-          </div>
-
-          <div v-else class="space-y-1.5">
-            <div
-              v-for="slot in selectedDaySlots"
-              :key="slot.id"
-              class="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50"
-            >
-              <span class="text-sm text-gray-900">
-                {{ formatTime(slot.start_time) }} — {{ formatTime(slot.end_time) }}
-              </span>
-              <div class="flex items-center gap-2">
-                <span class="text-xs text-gray-400">{{ slot.worker.name }}</span>
-                <span
-                  :class="slot.is_available ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'"
-                  class="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                >
-                  {{ slot.is_available ? t('dashboard.slotAvailable') : t('dashboard.slotTaken') }}
-                </span>
-              </div>
-            </div>
+          <div class="flex items-center gap-3">
+            <Label for="auto-confirm" class="font-normal">
+              {{ autoConfirm ? t('dashboard.autoConfirm') : t('dashboard.manualConfirm') }}
+            </Label>
+            <Switch
+              id="auto-confirm"
+              :model-value="autoConfirm"
+              :disabled="savingSettings"
+              class="data-checked:bg-green-500"
+              @update:model-value="toggleAutoConfirm"
+            />
           </div>
         </div>
-      </div>
 
-      <!-- ── Slot generator ──────────────────────────────────────── -->
-      <div class="lg:w-1/2">
-        <div class="bg-white rounded-xl border border-gray-100 p-5 space-y-5">
-          <h2 class="text-sm font-semibold text-gray-900">{{ t('dashboard.generate.title') }}</h2>
-
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.worker') }} *</label>
-            <select
-              v-model="form.worker_id"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">{{ t('dashboard.generate.workerPlaceholder') }}</option>
-              <option v-for="w in workers" :key="w.id" :value="w.id">{{ w.name }}</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.period') }} *</label>
-            <div class="grid grid-cols-2 gap-2">
-              <input
-                v-model="form.date_from"
-                type="date"
-                :min="new Date().toISOString().slice(0, 10)"
-                class="border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <input
-                v-model="form.date_to"
-                type="date"
-                :min="form.date_from"
-                class="border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+        <!-- Sajt klijenta -->
+        <Card v-if="siteUrl" size="sm" class="mb-6">
+          <CardContent class="flex items-center justify-between gap-4">
+            <div class="min-w-0">
+              <p class="text-sm font-medium">{{ t('dashboard.site.title') }}</p>
+              <p class="text-xs text-muted-foreground mt-0.5 truncate">{{ siteUrl }}</p>
             </div>
-          </div>
+            <Button as-child class="shrink-0">
+              <a :href="siteUrl" target="_blank" rel="noopener">{{ t('dashboard.site.open') }}</a>
+            </Button>
+          </CardContent>
+        </Card>
+      </template>
 
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.weekdays') }}</label>
-            <div class="flex gap-1.5 flex-wrap">
-              <button
-                v-for="d in WEEKDAYS"
-                :key="d.value"
-                @click="toggleWeekday(d.value)"
-                :class="form.weekdays.includes(d.value)
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
-                class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-              >
-                {{ d.label }}
-              </button>
-            </div>
-          </div>
+      <div v-if="loading" class="text-muted-foreground text-sm">{{ t('common.loading') }}</div>
 
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.workHours') }}</label>
-            <div class="flex items-center gap-2">
-              <input
-                v-model="form.work_start"
-                type="time"
-                class="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <span class="text-gray-400 text-sm">{{ t('dashboard.generate.to') }}</span>
-              <input
-                v-model="form.work_end"
-                type="time"
-                class="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-          </div>
+      <div v-else class="flex flex-col lg:flex-row gap-6">
 
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('dashboard.generate.duration') }}</label>
-            <div class="flex gap-1.5 flex-wrap">
-              <button
-                v-for="dur in DURATIONS"
-                :key="dur"
-                @click="form.slot_duration = dur"
-                :class="form.slot_duration === dur
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
-                class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-              >
-                {{ dur }}min
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <div class="flex items-center justify-between mb-1.5">
-              <label class="text-xs font-medium text-gray-600">{{ t('dashboard.generate.breaks') }}</label>
-              <button
-                @click="addBreak"
-                class="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
-              >
-                {{ t('dashboard.generate.addBreak') }}
-              </button>
-            </div>
-            <div class="space-y-2">
-              <div
-                v-for="(br, i) in form.breaks"
-                :key="i"
-                class="flex items-center gap-2"
-              >
-                <input
-                  v-model="br.start"
-                  type="time"
-                  class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <span class="text-gray-400 text-xs">—</span>
-                <input
-                  v-model="br.end"
-                  type="time"
-                  class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <button
-                  @click="removeBreak(i)"
-                  class="text-gray-300 hover:text-red-400 transition-colors text-lg leading-none shrink-0"
-                >
-                  ×
-                </button>
+        <!-- ── Calendar ─────────────────────────────────────────────── -->
+        <div class="lg:w-1/2 space-y-4">
+          <Card size="sm">
+            <CardContent>
+              <div class="flex items-center justify-between mb-4">
+                <Button variant="ghost" size="icon-sm" class="text-muted-foreground" :aria-label="t('common.prevMonth')" @click="prevMonth">
+                  <ChevronLeftIcon />
+                </Button>
+                <span class="text-sm font-medium capitalize">{{ monthLabel }}</span>
+                <Button variant="ghost" size="icon-sm" class="text-muted-foreground" :aria-label="t('common.nextMonth')" @click="nextMonth">
+                  <ChevronRightIcon />
+                </Button>
               </div>
-              <p v-if="form.breaks.length === 0" class="text-xs text-gray-400">
-                {{ t('dashboard.generate.noBreaks') }}
+
+              <div class="grid grid-cols-7 mb-1">
+                <div
+                  v-for="d in calDays"
+                  :key="d"
+                  class="text-center text-xs text-muted-foreground font-medium py-1"
+                >
+                  {{ d }}
+                </div>
+              </div>
+
+              <div class="grid grid-cols-7 gap-1">
+                <div v-for="(day, i) in calendarDays" :key="i">
+                  <div v-if="!day" class="h-12" />
+                  <Button
+                    v-else
+                    :variant="selectedDate === day.date ? 'default' : 'ghost'"
+                    :aria-pressed="selectedDate === day.date"
+                    :class="[
+                      'w-full h-12 flex-col gap-0 px-0 text-xs font-normal',
+                      selectedDate !== day.date && (day.slotCount > 0
+                        ? 'bg-accent hover:bg-primary/15 text-foreground'
+                        : 'text-muted-foreground'),
+                    ]"
+                    @click="selectDate(day.date)"
+                  >
+                    <span class="font-medium leading-none">{{ day.day }}</span>
+                    <span
+                      v-if="day.slotCount > 0"
+                      class="text-[10px] leading-none mt-0.5 opacity-75"
+                    >
+                      {{ day.availableCount }}/{{ day.slotCount }}
+                    </span>
+                  </Button>
+                </div>
+              </div>
+
+              <p class="text-xs text-muted-foreground mt-3 text-center">
+                {{ t('dashboard.slotsLegend') }}
               </p>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div class="border-t border-gray-100 pt-4 space-y-3">
-            <div class="flex items-center justify-between">
-              <span class="text-xs text-gray-500">{{ t('dashboard.generate.willGenerate') }}</span>
-              <span class="text-sm font-semibold text-indigo-600">{{ preview }} {{ t('dashboard.generate.slots') }}</span>
-            </div>
+          <Card v-if="selectedDate" size="sm">
+            <CardContent>
+              <h2 class="text-sm font-medium mb-3 capitalize">
+                {{ formatDateLong(selectedDate) }}
+              </h2>
 
-            <p v-if="generateError" class="text-red-500 text-xs">{{ generateError }}</p>
-            <p v-if="generateSuccess" class="text-green-600 text-xs font-medium">{{ generateSuccess }}</p>
+              <div v-if="selectedDaySlots.length === 0" class="text-muted-foreground text-sm text-center py-4">
+                {{ t('dashboard.noSlots') }}
+              </div>
 
-            <button
-              @click="handleGenerate"
-              :disabled="generating || preview === 0"
-              class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
-            >
-              {{ generating ? t('dashboard.generate.generating') : t('dashboard.generate.generateBtn') }}
-            </button>
-          </div>
+              <div v-else class="space-y-1.5">
+                <div
+                  v-for="slot in selectedDaySlots"
+                  :key="slot.id"
+                  class="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/60"
+                >
+                  <span class="text-sm">
+                    {{ formatTime(slot.start_time) }} — {{ formatTime(slot.end_time) }}
+                  </span>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-muted-foreground">{{ slot.worker.name }}</span>
+                    <Badge :class="slot.is_available ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'">
+                      {{ slot.is_available ? t('dashboard.slotAvailable') : t('dashboard.slotTaken') }}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <!-- ── Slot generator ──────────────────────────────────────── -->
+        <div class="lg:w-1/2">
+          <Card>
+            <CardContent class="space-y-5">
+              <h2 class="text-sm font-semibold">{{ t('dashboard.generate.title') }}</h2>
+
+              <div class="grid gap-1.5">
+                <Label for="generate-worker">{{ t('dashboard.generate.worker') }} *</Label>
+                <NativeSelect id="generate-worker" v-model="form.worker_id">
+                  <NativeSelectOption value="">{{ t('dashboard.generate.workerPlaceholder') }}</NativeSelectOption>
+                  <NativeSelectOption v-for="w in workers" :key="w.id" :value="w.id">{{ w.name }}</NativeSelectOption>
+                </NativeSelect>
+              </div>
+
+              <div class="grid gap-1.5">
+                <Label for="generate-date-from">{{ t('dashboard.generate.period') }} *</Label>
+                <div class="grid grid-cols-2 gap-2">
+                  <Input
+                    id="generate-date-from"
+                    v-model="form.date_from"
+                    type="date"
+                    :min="new Date().toISOString().slice(0, 10)"
+                    class="min-w-0"
+                  />
+                  <Input
+                    v-model="form.date_to"
+                    type="date"
+                    :min="form.date_from"
+                    class="min-w-0"
+                  />
+                </div>
+              </div>
+
+              <div class="grid gap-1.5">
+                <Label>{{ t('dashboard.generate.weekdays') }}</Label>
+                <div class="flex gap-1.5 flex-wrap">
+                  <Button
+                    v-for="d in WEEKDAYS"
+                    :key="d.value"
+                    type="button"
+                    size="sm"
+                    :variant="form.weekdays.includes(d.value) ? 'default' : 'secondary'"
+                    :aria-pressed="form.weekdays.includes(d.value)"
+                    class="text-xs"
+                    @click="toggleWeekday(d.value)"
+                  >
+                    {{ d.label }}
+                  </Button>
+                </div>
+              </div>
+
+              <div class="grid gap-1.5">
+                <Label for="generate-work-start">{{ t('dashboard.generate.workHours') }}</Label>
+                <div class="flex items-center gap-2">
+                  <Input id="generate-work-start" v-model="form.work_start" type="time" class="flex-1 min-w-0" />
+                  <span class="text-muted-foreground text-sm">{{ t('dashboard.generate.to') }}</span>
+                  <Input v-model="form.work_end" type="time" class="flex-1 min-w-0" />
+                </div>
+              </div>
+
+              <div class="grid gap-1.5">
+                <Label>{{ t('dashboard.generate.duration') }}</Label>
+                <div class="flex gap-1.5 flex-wrap">
+                  <Button
+                    v-for="dur in DURATIONS"
+                    :key="dur"
+                    type="button"
+                    size="sm"
+                    :variant="form.slot_duration === dur ? 'default' : 'secondary'"
+                    :aria-pressed="form.slot_duration === dur"
+                    class="text-xs"
+                    @click="form.slot_duration = dur"
+                  >
+                    {{ dur }}min
+                  </Button>
+                </div>
+              </div>
+
+              <div class="grid gap-1.5">
+                <div class="flex items-center justify-between">
+                  <Label>{{ t('dashboard.generate.breaks') }}</Label>
+                  <Button type="button" variant="link" size="xs" class="px-0" @click="addBreak">
+                    {{ t('dashboard.generate.addBreak') }}
+                  </Button>
+                </div>
+                <div class="space-y-2">
+                  <div
+                    v-for="(br, i) in form.breaks"
+                    :key="i"
+                    class="flex items-center gap-2"
+                  >
+                    <Input v-model="br.start" type="time" class="flex-1 min-w-0" />
+                    <span class="text-muted-foreground text-xs">—</span>
+                    <Input v-model="br.end" type="time" class="flex-1 min-w-0" />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      class="text-muted-foreground hover:text-destructive shrink-0"
+                      :aria-label="t('common.delete')"
+                      @click="removeBreak(i)"
+                    >
+                      <XIcon />
+                    </Button>
+                  </div>
+                  <p v-if="form.breaks.length === 0" class="text-xs text-muted-foreground">
+                    {{ t('dashboard.generate.noBreaks') }}
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-muted-foreground">{{ t('dashboard.generate.willGenerate') }}</span>
+                  <span class="text-sm font-semibold text-primary">{{ preview }} {{ t('dashboard.generate.slots') }}</span>
+                </div>
+
+                <p v-if="generateError" class="text-destructive text-xs">{{ generateError }}</p>
+                <p v-if="generateSuccess" class="text-green-600 text-xs font-medium">{{ generateSuccess }}</p>
+
+                <Button class="w-full" :disabled="generating || preview === 0" @click="handleGenerate">
+                  {{ generating ? t('dashboard.generate.generating') : t('dashboard.generate.generateBtn') }}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
-    </div>
     </template>
 
   </AdminLayout>

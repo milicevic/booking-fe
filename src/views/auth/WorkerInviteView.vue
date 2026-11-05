@@ -5,6 +5,10 @@ import { useI18n } from 'vue-i18n'
 import { tenantApi } from '@/api/tenant'
 import { useAuthStore } from '@/stores/auth'
 import { apiErrorMessage } from '@/lib/apiError'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -26,7 +30,7 @@ async function handleSubmit() {
   loading.value = true
   try {
     const { data } = await tenantApi.acceptInvite(token, form)
-    auth.setSession(data.token as string, data.client as any)
+    auth.setSession(data.token, data.client)
     router.push({ name: 'dashboard' })
   } catch (e) {
     error.value = apiErrorMessage(e, t('auth.inviteError'))
@@ -41,45 +45,44 @@ async function handleSubmit() {
     <div class="w-full max-w-sm">
 
       <div class="text-center mb-8">
-        <h1 class="text-2xl font-bold text-gray-900">{{ t('auth.inviteTitle') }}</h1>
-        <p class="text-sm text-gray-500 mt-1">{{ t('auth.inviteSubtitle') }}</p>
+        <h1 class="text-2xl font-bold">{{ t('auth.inviteTitle') }}</h1>
+        <p class="text-sm text-muted-foreground mt-1">{{ t('auth.inviteSubtitle') }}</p>
       </div>
 
-      <form @submit.prevent="handleSubmit" class="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
+      <Card>
+        <CardContent>
+          <form @submit.prevent="handleSubmit" class="space-y-5">
+            <div class="grid gap-1.5">
+              <Label for="invite-name">{{ t('auth.yourName') }} *</Label>
+              <Input
+                id="invite-name"
+                v-model="form.name"
+                type="text"
+                required
+                placeholder="Ime i prezime"
+              />
+            </div>
 
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('auth.yourName') }} *</label>
-          <input
-            v-model="form.name"
-            type="text"
-            required
-            placeholder="Ime i prezime"
-            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
+            <div class="grid gap-1.5">
+              <Label for="invite-password">{{ t('auth.password') }} *</Label>
+              <Input
+                id="invite-password"
+                v-model="form.password"
+                type="password"
+                required
+                minlength="8"
+                :placeholder="t('auth.minPassword')"
+              />
+            </div>
 
-        <div>
-          <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('auth.password') }} *</label>
-          <input
-            v-model="form.password"
-            type="password"
-            required
-            minlength="8"
-            :placeholder="t('auth.minPassword')"
-            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
+            <p v-if="error" class="text-destructive text-xs">{{ error }}</p>
 
-        <p v-if="error" class="text-red-500 text-xs">{{ error }}</p>
-
-        <button
-          type="submit"
-          :disabled="loading"
-          class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium py-3 rounded-xl transition-colors"
-        >
-          {{ loading ? t('auth.activating') : t('auth.activateBtn') }}
-        </button>
-      </form>
+            <Button type="submit" size="lg" class="w-full" :disabled="loading">
+              {{ loading ? t('auth.activating') : t('auth.activateBtn') }}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   </div>
 </template>

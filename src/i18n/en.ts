@@ -8,6 +8,9 @@ export default {
     optional: 'optional',
     or: 'or',
     back: 'Back',
+    delete: 'Delete',
+    prevMonth: 'Previous month',
+    nextMonth: 'Next month',
   },
 
   nav: {
@@ -132,7 +135,7 @@ export default {
     creating: 'Creating...',
     registerError: 'Registration error',
     successTitle: 'Account created!',
-    successMsg: 'Your page is ready. We also sent you an email with sign-in details. The trial lasts 7 days.',
+    successMsg: 'Your page is ready. We sent you an email — click the link in it to confirm your address, then sign in. The trial lasts 7 days.',
     yourAddress: 'Your page address',
     goToLogin: 'Sign in',
     alreadyHaveAccount: 'Already have an account?',
@@ -144,6 +147,33 @@ export default {
     activateBtn: 'Activate account',
     activating: 'Activating...',
     inviteError: 'Link is invalid or has expired',
+
+    verify: {
+      confirmed: 'Your email is confirmed. You can sign in now.',
+      invalidLink: 'The confirmation link is invalid or has expired. Sign in to get a new one.',
+      notReceived: "Didn't get the email?",
+      resend: 'Send again',
+      resending: 'Sending...',
+      resent: 'We sent a new link. Check your inbox (and spam).',
+      resendError: 'Could not send the email. Please try again.',
+    },
+
+    google: {
+      continueBtn: 'Continue with Google',
+      or: 'or',
+      registerHint: 'Enter the business name first',
+      callbackTitle: 'Sign in with Google',
+      signingIn: 'Signing in...',
+      backToLogin: 'Back to sign in',
+      errors: {
+        google_failed: 'Google sign-in failed. Please try again.',
+        email_not_verified: 'Your Google account email is not verified.',
+        account_not_found: 'No account exists for this Google email. Register first.',
+        suspended: 'Account is suspended.',
+        wrong_tenant: 'This account does not belong to this business.',
+        invalid_host: 'Google sign-in is not available on this address.',
+      },
+    },
 
     themes: {
       minimal: { label: 'Minimal', desc: 'Clean, modern look' },
@@ -261,6 +291,7 @@ export default {
   },
 
   services: {
+    edit: 'Edit',
     title: 'Services',
     addBtn: '+ Add',
     name: 'Name',

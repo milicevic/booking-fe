@@ -8,6 +8,9 @@ export default {
     optional: 'opciono',
     or: 'ili',
     back: 'Nazad',
+    delete: 'Obriši',
+    prevMonth: 'Prethodni mesec',
+    nextMonth: 'Sledeći mesec',
   },
 
   nav: {
@@ -132,7 +135,7 @@ export default {
     creating: 'Kreiranje...',
     registerError: 'Greška pri registraciji',
     successTitle: 'Nalog kreiran!',
-    successMsg: 'Vaša stranica je spremna. Poslali smo vam i email sa podacima za prijavu. Probni period traje 7 dana.',
+    successMsg: 'Vaša stranica je spremna. Poslali smo vam mejl — kliknite na link u njemu da potvrdite adresu, pa se prijavite. Probni period traje 7 dana.',
     yourAddress: 'Adresa vaše stranice',
     goToLogin: 'Prijavi se',
     alreadyHaveAccount: 'Već imate nalog?',
@@ -144,6 +147,33 @@ export default {
     activateBtn: 'Aktiviraj nalog',
     activating: 'Aktivacija...',
     inviteError: 'Link je nevažeći ili je istekao',
+
+    verify: {
+      confirmed: 'Email je potvrđen. Sada možete da se prijavite.',
+      invalidLink: 'Link za potvrdu je neispravan ili je istekao. Prijavite se da dobijete novi.',
+      notReceived: 'Niste dobili mejl?',
+      resend: 'Pošalji ponovo',
+      resending: 'Slanje...',
+      resent: 'Poslali smo novi link. Proverite inbox (i spam).',
+      resendError: 'Slanje mejla nije uspelo. Pokušajte ponovo.',
+    },
+
+    google: {
+      continueBtn: 'Nastavi sa Google',
+      or: 'ili',
+      registerHint: 'Prvo unesite naziv firme',
+      callbackTitle: 'Prijava preko Google naloga',
+      signingIn: 'Prijava...',
+      backToLogin: 'Nazad na prijavu',
+      errors: {
+        google_failed: 'Prijava preko Google naloga nije uspela. Pokušajte ponovo.',
+        email_not_verified: 'Email adresa vašeg Google naloga nije potvrđena.',
+        account_not_found: 'Ne postoji nalog sa ovom Google email adresom. Prvo se registrujte.',
+        suspended: 'Nalog je suspendovan.',
+        wrong_tenant: 'Ovaj nalog ne pripada ovoj firmi.',
+        invalid_host: 'Prijava preko Google naloga nije dostupna na ovoj adresi.',
+      },
+    },
 
     themes: {
       minimal: { label: 'Minimalno', desc: 'Čist, moderan izgled' },
@@ -261,6 +291,7 @@ export default {
   },
 
   services: {
+    edit: 'Izmeni',
     title: 'Usluge',
     addBtn: '+ Dodaj',
     name: 'Naziv',

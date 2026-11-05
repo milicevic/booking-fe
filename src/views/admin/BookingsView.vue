@@ -3,6 +3,9 @@ import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { adminApi } from '@/api/admin'
 import { useAdminContextStore } from '@/stores/adminContext'
 import type { Booking } from '@/api/booking'
@@ -65,63 +68,58 @@ function formatDate(date: string) {
 
 <template>
   <AdminLayout>
-    <h1 class="text-xl font-semibold text-gray-900 mb-6">{{ t('bookingsView.title') }}</h1>
+    <h1 class="text-xl font-semibold mb-6">{{ t('bookingsView.title') }}</h1>
 
-    <div class="flex gap-2 mb-6">
-      <button
+    <div class="flex flex-wrap gap-2 mb-6">
+      <Button
         v-for="f in ['all', 'confirmed', 'pending', 'cancelled']"
         :key="f"
+        :variant="filter === f ? 'default' : 'outline'"
+        :aria-pressed="filter === f"
         @click="filter = f as any"
-        :class="filter === f
-          ? 'bg-indigo-600 text-white'
-          : 'bg-white text-gray-500 border border-gray-200'"
-        class="text-sm font-medium px-4 py-2 rounded-lg transition-colors"
       >
         {{ f === 'all' ? t('bookingsView.filterAll') : f === 'confirmed' ? t('bookingsView.filterActive') : f === 'pending' ? t('bookingsView.filterPending') : t('bookingsView.filterCancelled') }}
-      </button>
+      </Button>
     </div>
 
-    <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>
+    <div v-if="loading" class="text-muted-foreground text-sm">{{ t('common.loading') }}</div>
 
     <div v-else class="space-y-2">
-      <div
-        v-for="booking in filtered"
-        :key="booking.id"
-        class="bg-white rounded-xl border border-gray-100 p-4"
-      >
-        <div class="flex items-start justify-between mb-2">
-          <div>
-            <p class="text-sm font-medium text-gray-900">{{ booking.customer_name }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">
-              {{ booking.customer_phone ?? booking.customer_email ?? '—' }}
-            </p>
+      <Card v-for="booking in filtered" :key="booking.id" size="sm">
+        <CardContent>
+          <div class="flex items-start justify-between gap-3 mb-2">
+            <div class="min-w-0">
+              <p class="text-sm font-medium break-words">{{ booking.customer_name }}</p>
+              <p class="text-xs text-muted-foreground mt-0.5 break-all">
+                {{ booking.customer_phone ?? booking.customer_email ?? '—' }}
+              </p>
+            </div>
+            <Badge :class="bookingStatusClass(booking.status)" class="shrink-0">
+              {{ bookingStatusLabel(booking.status) }}
+            </Badge>
           </div>
-          <span
-            :class="bookingStatusClass(booking.status)"
-            class="text-xs font-medium px-2.5 py-1 rounded-full shrink-0"
+
+          <div class="text-xs text-muted-foreground space-y-0.5">
+            <p>{{ booking.slot.worker.name }} · {{ formatDate(booking.slot.date) }} · {{ booking.start_time.slice(0, 5) }}</p>
+            <p v-if="booking.service" class="text-foreground/80">
+              {{ booking.service.name }}<template v-if="booking.service.price"> · {{ formatPrice(booking.service.price, locale, tenantStore.config?.currency) }}</template>
+            </p>
+            <p v-if="booking.note" class="italic">{{ booking.note }}</p>
+          </div>
+
+          <Button
+            v-if="booking.status === 'confirmed'"
+            variant="link"
+            size="xs"
+            class="mt-2 px-0 text-destructive"
+            @click="handleCancel(booking)"
           >
-            {{ bookingStatusLabel(booking.status) }}
-          </span>
-        </div>
+            {{ t('bookingsView.cancelBtn') }}
+          </Button>
+        </CardContent>
+      </Card>
 
-        <div class="text-xs text-gray-500 space-y-0.5">
-          <p>{{ booking.slot.worker.name }} · {{ formatDate(booking.slot.date) }} · {{ booking.start_time.slice(0, 5) }}</p>
-          <p v-if="booking.service" class="text-gray-700">
-            {{ booking.service.name }}<template v-if="booking.service.price"> · {{ formatPrice(booking.service.price, locale, tenantStore.config?.currency) }}</template>
-          </p>
-          <p v-if="booking.note" class="text-gray-400 italic">{{ booking.note }}</p>
-        </div>
-
-        <button
-          v-if="booking.status === 'confirmed'"
-          @click="handleCancel(booking)"
-          class="mt-3 text-xs text-red-500 hover:text-red-700 transition-colors"
-        >
-          {{ t('bookingsView.cancelBtn') }}
-        </button>
-      </div>
-
-      <div v-if="filtered.length === 0" class="text-center py-8 text-gray-400 text-sm">
+      <div v-if="filtered.length === 0" class="text-center py-8 text-muted-foreground text-sm">
         {{ t('bookingsView.noBookings') }}
       </div>
     </div>

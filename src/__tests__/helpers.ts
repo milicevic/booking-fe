@@ -11,6 +11,7 @@ export function createTestRouter() {
       { path: '/confirmation', name: 'confirmation', component: Stub },
       { path: '/manage/:token', name: 'manage', component: Stub },
       { path: '/register', name: 'register', component: Stub },
+      { path: '/auth/callback', name: 'google-callback', component: Stub },
       { path: '/admin/login', name: 'login', component: Stub },
       { path: '/admin', name: 'dashboard', component: Stub },
     ],

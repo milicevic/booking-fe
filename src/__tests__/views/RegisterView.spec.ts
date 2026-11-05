@@ -5,7 +5,7 @@ import { i18n } from '@/i18n'
 import { createTestRouter } from '../helpers'
 
 vi.mock('@/api/tenant', () => ({
-  tenantApi: { register: vi.fn(), previewSubdomain: vi.fn() },
+  tenantApi: { register: vi.fn<(...args: unknown[]) => unknown>(), previewSubdomain: vi.fn<(...args: unknown[]) => unknown>() },
 }))
 
 import RegisterView from '@/views/auth/RegisterView.vue'
@@ -24,7 +24,7 @@ describe('RegisterView', () => {
     setActivePinia(createPinia())
     vi.stubEnv('VITE_PLATFORM_HOST', 'slotres.click')
     vi.mocked(tenantApi.previewSubdomain).mockResolvedValue({ data: { subdomain: 'salon-ana' } } as never)
-    vi.mocked(tenantApi.register).mockResolvedValue({ data: { token: 't', tenant: { subdomain: 'salon-ana' } } } as never)
+    vi.mocked(tenantApi.register).mockResolvedValue({ data: { tenant: { subdomain: 'salon-ana' } } } as never)
   })
 
   afterEach(() => {
@@ -80,5 +80,22 @@ describe('RegisterView', () => {
     const base = `${protocol}//salon-ana.slotres.click${port ? `:${port}` : ''}`
     expect(wrapper.find('[data-testid="registered-address"]').attributes('href')).toBe(base)
     expect(wrapper.find('[data-testid="go-to-login"]').attributes('href')).toBe(`${base}/admin/login`)
+  })
+
+  it('enables Google registration only after the business name is entered', async () => {
+    vi.stubEnv('VITE_PLATFORM_HOST', window.location.hostname)
+    const wrapper = await mountRegister()
+    const google = () => wrapper.find('[data-testid="google-auth"]')
+
+    expect(google().attributes('disabled')).toBeDefined()
+
+    await wrapper.find('#register-app-name').setValue('Salon Ana')
+
+    expect(google().attributes('disabled')).toBeUndefined()
+  })
+
+  it('hides Google registration on a business site', async () => {
+    const wrapper = await mountRegister()
+    expect(wrapper.find('[data-testid="google-auth"]').exists()).toBe(false)
   })
 })

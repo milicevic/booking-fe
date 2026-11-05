@@ -6,7 +6,7 @@ import { i18n } from '@/i18n'
 
 // Pokreće request interceptor nad praznim configom i vraća headere
 async function headersFor(): Promise<Record<string, unknown>> {
-  const handler = (api.interceptors.request as any).handlers[0]
+  const handler = (api.interceptors.request as unknown as { handlers: Array<{ fulfilled: (c: InternalAxiosRequestConfig) => Promise<InternalAxiosRequestConfig> }> }).handlers[0]!
   const cfg = await handler.fulfilled({ headers: new AxiosHeaders() } as InternalAxiosRequestConfig)
   return cfg.headers.toJSON()
 }

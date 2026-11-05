@@ -1,12 +1,14 @@
 <script setup lang="ts">
+import { XIcon } from '@lucide/vue'
 import { useToast } from '@/composables/useToast'
+import { Button } from '@/components/ui/button'
 
 const { toasts, dismiss } = useToast()
 
 const styles = {
   success: 'bg-green-50 border-green-200 text-green-800',
   error: 'bg-red-50 border-red-200 text-red-800',
-  info: 'bg-white border-gray-200 text-gray-800',
+  info: 'bg-popover text-popover-foreground',
 }
 </script>
 
@@ -21,16 +23,18 @@ const styles = {
           v-for="toast in toasts"
           :key="toast.id"
           role="alert"
-          :class="['pointer-events-auto rounded-xl border shadow-lg px-4 py-3 flex items-start gap-3 text-sm', styles[toast.type]]"
+          :class="['pointer-events-auto rounded-xl border shadow-lg pl-4 pr-2 py-2 flex items-start gap-2 text-sm', styles[toast.type]]"
         >
-          <p class="flex-1 leading-relaxed">{{ toast.message }}</p>
-          <button
-            @click="dismiss(toast.id)"
+          <p class="flex-1 leading-relaxed py-1">{{ toast.message }}</p>
+          <Button
+            variant="ghost"
+            size="icon-xs"
             aria-label="Close"
-            class="shrink-0 opacity-50 hover:opacity-100 transition-opacity leading-none text-lg"
+            class="shrink-0 opacity-60 hover:opacity-100 hover:bg-black/5"
+            @click="dismiss(toast.id)"
           >
-            ×
-          </button>
+            <XIcon />
+          </Button>
         </div>
       </TransitionGroup>
     </div>

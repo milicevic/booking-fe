@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
-vi.mock('@/api/tenant', () => ({ tenantApi: { getConfig: vi.fn() } }))
+vi.mock('@/api/tenant', () => ({ tenantApi: { getConfig: vi.fn<(...args: unknown[]) => unknown>() } }))
 
 import { tenantApi } from '@/api/tenant'
 import type { TenantConfig } from '@/api/tenant'
@@ -54,8 +54,8 @@ describe('tenant store', () => {
     expect(tenant.appName).toBe('Salon A')
     expect(tenant.logoUrl).toBe('https://cdn.example.com/logo.png')
     const root = document.documentElement
-    expect(root.style.getPropertyValue('--color-primary')).toBe('#111111')
-    expect(root.style.getPropertyValue('--color-secondary')).toBe('#222222')
+    expect(root.style.getPropertyValue('--primary')).toBe('#111111')
+    expect(root.style.getPropertyValue('--primary-foreground')).toBe('#ffffff')
     expect(root.getAttribute('data-theme')).toBe('modern')
   })
 
@@ -107,5 +107,11 @@ describe('tenant store', () => {
     await tenant.fetchConfig()
 
     expect(tenant.trialDaysLeft).toBe(0)
+  })
+
+  it('keeps the default brand color when the business has none', async () => {
+    getConfig.mockResolvedValue({ data: config({ primary_color: null as never }) })
+    await useTenantStore().fetchConfig()
+    expect(document.documentElement.style.getPropertyValue('--primary')).toBe('')
   })
 })

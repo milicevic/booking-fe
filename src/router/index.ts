@@ -31,6 +31,11 @@ const router = createRouter({
       component: () => import('@/views/auth/RegisterView.vue'),
     },
     {
+      path: '/auth/callback',
+      name: 'google-callback',
+      component: () => import('@/views/auth/GoogleCallbackView.vue'),
+    },
+    {
       path: '/invite/:token',
       name: 'worker-invite',
       component: () => import('@/views/auth/WorkerInviteView.vue'),

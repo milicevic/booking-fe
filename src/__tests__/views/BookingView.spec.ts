@@ -4,8 +4,8 @@ import { createPinia, setActivePinia } from 'pinia'
 import { i18n } from '@/i18n'
 import { createTestRouter, localDate } from '../helpers'
 
-vi.mock('@/api/slots', () => ({ slotsApi: { getAvailable: vi.fn(), getTimes: vi.fn() } }))
-vi.mock('@/api/booking', () => ({ bookingApi: { create: vi.fn(), getByToken: vi.fn() } }))
+vi.mock('@/api/slots', () => ({ slotsApi: { getAvailable: vi.fn<(...args: unknown[]) => unknown>(), getTimes: vi.fn<(...args: unknown[]) => unknown>() } }))
+vi.mock('@/api/booking', () => ({ bookingApi: { create: vi.fn<(...args: unknown[]) => unknown>(), getByToken: vi.fn<(...args: unknown[]) => unknown>() } }))
 
 import { slotsApi } from '@/api/slots'
 import { bookingApi } from '@/api/booking'
@@ -59,11 +59,18 @@ function button(wrapper: VueWrapper, text: string) {
   return btn
 }
 
+/** Calendar day buttons must be matched exactly — "5" would otherwise match a price like "1500". */
+function dayButton(wrapper: VueWrapper, day = new Date().getDate()) {
+  const btn = wrapper.findAll('button').find((b) => b.text().trim() === String(day) && !b.attributes('disabled'))
+  if (!btn) throw new Error(`Day button "${day}" not found`)
+  return btn
+}
+
 async function goToForm(wrapper: VueWrapper) {
   await button(wrapper, 'Marko').trigger('click')
   await button(wrapper, 'Haircut').trigger('click')
   await flushPromises()
-  await button(wrapper, String(new Date().getDate())).trigger('click')
+  await dayButton(wrapper).trigger('click')
   await button(wrapper, '09:00').trigger('click')
 }
 
@@ -124,7 +131,7 @@ describe('BookingView (end-user booking flow)', () => {
     await button(wrapper, 'Marko').trigger('click')
     await button(wrapper, 'Haircut').trigger('click')
     await flushPromises()
-    await button(wrapper, String(new Date().getDate())).trigger('click')
+    await dayButton(wrapper).trigger('click')
 
     const times = wrapper.findAll('button').map((b) => b.text()).filter((t) => /^\d\d:\d\d —/.test(t))
     expect(times).toEqual(['09:00 — 09:30', '11:00 — 11:30'])
@@ -136,7 +143,7 @@ describe('BookingView (end-user booking flow)', () => {
     await button(wrapper, 'Marko').trigger('click')
     await button(wrapper, 'Haircut').trigger('click')
     await flushPromises()
-    await button(wrapper, String(new Date().getDate())).trigger('click')
+    await dayButton(wrapper).trigger('click')
 
     expect(wrapper.text()).toContain('09:40 — 10:00')
     timesByWorker[1] = [time(1, '11:00', '11:30'), time(2, '09:00', '09:30')]

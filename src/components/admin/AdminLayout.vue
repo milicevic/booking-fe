@@ -8,6 +8,8 @@ import { useAdminContextStore } from '@/stores/adminContext'
 import SubscriptionBanner from '@/components/SubscriptionBanner.vue'
 import LangSwitcher from '@/components/LangSwitcher.vue'
 import TenantLogo from '@/components/TenantLogo.vue'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
 const { t } = useI18n()
 
@@ -49,68 +51,77 @@ const navItems = computed(() => [
     <SubscriptionBanner />
 
     <!-- Top nav -->
-    <nav class="bg-white border-b border-gray-100 px-4 py-3">
-      <div class="max-w-5xl mx-auto flex items-center justify-between">
-        <div class="flex items-center gap-2.5">
+    <nav class="bg-card border-b px-4 py-3">
+      <div class="max-w-5xl mx-auto flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 min-w-0">
           <!-- Admin in client context: back button + client name -->
           <template v-if="isAdmin && adminContext.selectedClient">
-            <button
-              @click="handleBack"
-              class="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium mr-2"
-            >
+            <Button variant="link" class="h-auto px-0 mr-2" @click="handleBack">
               {{ t('nav.clients') }}
-            </button>
-            <span class="font-semibold text-gray-900">{{ adminContext.selectedClient.name }}</span>
-            <span
-              v-if="adminContext.selectedClient.is_suspended"
-              class="text-[10px] bg-red-100 text-red-600 font-medium px-2 py-0.5 rounded-full"
-            >
+            </Button>
+            <span class="font-semibold">{{ adminContext.selectedClient.name }}</span>
+            <Badge v-if="adminContext.selectedClient.is_suspended" variant="destructive">
               {{ t('nav.suspended') }}
-            </span>
+            </Badge>
           </template>
 
           <!-- Admin on main page -->
           <template v-else-if="isAdmin">
-            <span class="font-semibold text-gray-900">{{ t('nav.adminPanel') }}</span>
+            <span class="font-semibold">{{ t('nav.adminPanel') }}</span>
           </template>
 
           <!-- Client / worker -->
           <template v-else>
             <TenantLogo :src="tenant.logoUrl" :size="24" />
-            <span class="font-semibold text-gray-900">{{ tenant.appName }}</span>
+            <span class="font-semibold truncate">{{ tenant.appName }}</span>
           </template>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 shrink-0">
           <LangSwitcher />
-          <button
-            @click="handleLogout"
-            class="text-sm text-gray-500 hover:text-gray-700"
-          >
+          <Button variant="ghost" size="sm" class="text-muted-foreground" @click="handleLogout">
             {{ t('nav.logout') }}
-          </button>
+          </Button>
         </div>
       </div>
     </nav>
 
-    <!-- Bottom nav — prikazuje se samo za non-admin ili admin u kontekstu klijenta -->
-    <nav v-if="showBottomNav" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex z-10">
+    <!-- Navigacija na tabletu i desktopu: tabovi ispod gornje trake -->
+    <nav v-if="showBottomNav" class="hidden md:block bg-card border-b px-4">
+      <div class="max-w-5xl mx-auto flex gap-1">
+        <router-link
+          v-for="item in navItems"
+          :key="item.name"
+          :to="{ name: item.name }"
+          class="flex items-center gap-2 px-3 py-3 text-sm font-medium border-b-2 -mb-px transition-colors"
+          :class="route.name === item.name
+            ? 'border-primary text-primary'
+            : 'border-transparent text-muted-foreground hover:text-foreground'"
+        >
+          <span class="leading-none">{{ item.icon }}</span>
+          {{ item.label }}
+        </router-link>
+      </div>
+    </nav>
+
+    <!-- Navigacija na telefonu: donja traka — prikazuje se samo za non-admin ili admin u kontekstu klijenta -->
+    <nav v-if="showBottomNav" class="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t flex z-10 pb-[env(safe-area-inset-bottom)]">
       <router-link
         v-for="item in navItems"
         :key="item.name"
         :to="{ name: item.name }"
-        class="flex-1 flex flex-col items-center py-3 text-xs gap-1 transition-colors"
+        class="flex-1 min-w-0 flex flex-col items-center py-2.5 px-0.5 text-[10px] min-[400px]:text-xs gap-1 transition-colors"
         :class="route.name === item.name
-          ? 'text-indigo-600'
-          : 'text-gray-400 hover:text-gray-600'"
+          ? 'text-primary'
+          : 'text-muted-foreground hover:text-foreground'"
       >
         <span class="text-lg leading-none">{{ item.icon }}</span>
-        {{ item.label }}
+        <span class="max-w-full truncate">{{ item.label }}</span>
       </router-link>
     </nav>
 
     <!-- Content -->
-    <main class="max-w-5xl mx-auto px-4 pt-6" :class="showBottomNav ? 'pb-24' : 'pb-6'">
+    <main class="max-w-5xl mx-auto px-4 pt-6" :class="showBottomNav ? 'pb-24 md:pb-8' : 'pb-6'">
       <slot />
     </main>
   </div>

@@ -7,14 +7,21 @@ import { tenantApi } from '@/api/tenant'
 import { useTenantStore } from '@/stores/tenant'
 import { apiErrorMessage } from '@/lib/apiError'
 import { CURRENCIES } from '@/lib/price'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { cn } from '@/lib/utils'
+import { DEFAULT_PRIMARY_COLOR } from '@/lib/color'
 
 const { t } = useI18n()
 const tenantStore = useTenantStore()
 
 const form = ref({
   app_name: '',
-  primary_color: '#000000',
-  secondary_color: '#000000',
+  primary_color: DEFAULT_PRIMARY_COLOR,
+  secondary_color: '#818cf8',
   theme: 'minimal',
   currency: 'RSD',
   locale: 'sr',
@@ -31,8 +38,8 @@ onMounted(() => {
   const config = tenantStore.config
   if (config) {
     form.value.app_name = config.app_name ?? ''
-    form.value.primary_color = config.primary_color ?? '#000000'
-    form.value.secondary_color = config.secondary_color ?? '#000000'
+    form.value.primary_color = config.primary_color ?? DEFAULT_PRIMARY_COLOR
+    form.value.secondary_color = config.secondary_color ?? '#818cf8'
     form.value.theme = config.theme ?? 'minimal'
     form.value.currency = config.currency ?? 'RSD'
     form.value.locale = config.locale ?? 'sr'
@@ -88,144 +95,137 @@ const themes = ['minimal', 'modern', 'classic'] as const
 <template>
   <AdminLayout>
     <div class="mb-6">
-      <h1 class="text-xl font-semibold text-gray-900">{{ t('branding.title') }}</h1>
+      <h1 class="text-xl font-semibold">{{ t('branding.title') }}</h1>
     </div>
 
     <div class="space-y-6 max-w-lg">
 
       <!-- App name -->
-      <div class="bg-white rounded-xl border border-gray-100 p-5">
-        <label class="block text-sm font-medium text-gray-700 mb-2">
-          {{ t('branding.appName') }}
-        </label>
-        <input
-          v-model="form.app_name"
-          type="text"
-          class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
+      <Card>
+        <CardContent class="grid gap-2">
+          <Label for="branding-app-name" class="text-sm text-foreground">{{ t('branding.appName') }}</Label>
+          <Input id="branding-app-name" v-model="form.app_name" type="text" />
+        </CardContent>
+      </Card>
 
       <!-- Colors -->
-      <div class="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
-        <div class="flex items-center justify-between">
-          <label class="text-sm font-medium text-gray-700">{{ t('branding.primaryColor') }}</label>
-          <div class="flex items-center gap-2">
-            <span class="text-sm text-gray-500">{{ form.primary_color }}</span>
-            <input
-              v-model="form.primary_color"
-              type="color"
-              class="w-9 h-9 rounded cursor-pointer border border-gray-200"
-            />
-          </div>
-        </div>
-        <div class="flex items-center justify-between">
-          <label class="text-sm font-medium text-gray-700">{{ t('branding.secondaryColor') }}</label>
-          <div class="flex items-center gap-2">
-            <span class="text-sm text-gray-500">{{ form.secondary_color }}</span>
-            <input
-              v-model="form.secondary_color"
-              type="color"
-              class="w-9 h-9 rounded cursor-pointer border border-gray-200"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- Theme -->
-      <div class="bg-white rounded-xl border border-gray-100 p-5">
-        <p class="text-sm font-medium text-gray-700 mb-3">{{ t('branding.theme') }}</p>
-        <div class="flex gap-3">
-          <label
-            v-for="theme in themes"
-            :key="theme"
-            class="flex-1 flex items-center justify-center gap-2 border rounded-lg px-3 py-2.5 cursor-pointer text-sm transition-colors"
-            :class="form.theme === theme
-              ? 'border-indigo-500 bg-indigo-50 text-indigo-700 font-medium'
-              : 'border-gray-200 text-gray-600 hover:bg-gray-50'"
-          >
-            <input
-              v-model="form.theme"
-              type="radio"
-              :value="theme"
-              class="sr-only"
-            />
-            {{ t(`auth.themes.${theme}.label`) }}
-          </label>
-        </div>
-      </div>
-
-      <!-- Valuta i jezik obaveštenja -->
-      <div class="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
-        <div>
-          <label for="branding-currency" class="block text-sm font-medium text-gray-700 mb-2">{{ t('branding.currency') }}</label>
-          <select
-            id="branding-currency"
-            v-model="form.currency"
-            class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option v-for="currency in CURRENCIES" :key="currency" :value="currency">{{ currency }}</option>
-          </select>
-          <p class="text-xs text-gray-400 mt-1.5">{{ t('branding.currencyHint') }}</p>
-        </div>
-        <div>
-          <label for="branding-locale" class="block text-sm font-medium text-gray-700 mb-2">{{ t('branding.locale') }}</label>
-          <select
-            id="branding-locale"
-            v-model="form.locale"
-            class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="sr">Srpski</option>
-            <option value="en">English</option>
-          </select>
-          <p class="text-xs text-gray-400 mt-1.5">{{ t('branding.localeHint') }}</p>
-        </div>
-      </div>
-
-      <!-- Save button -->
-      <button
-        @click="handleSave"
-        :disabled="saving"
-        class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
-      >
-        {{ saving ? t('branding.saving') : saveStatus === 'saved' ? t('branding.saved') : t('branding.save') }}
-      </button>
-      <p v-if="saveStatus === 'error'" class="text-red-500 text-sm text-center">{{ saveError }}</p>
-
-      <!-- Logo -->
-      <div class="bg-white rounded-xl border border-gray-100 p-5">
-        <p class="text-sm font-medium text-gray-700 mb-3">{{ t('branding.logo') }}</p>
-
-        <div v-if="logoUrl" class="mb-4 flex flex-wrap items-end gap-6">
-          <img :src="logoUrl" alt="logo" class="h-16 w-auto max-w-[200px] object-contain rounded border border-gray-100 p-1" />
-          <div>
-            <p class="text-xs text-gray-400 mb-1.5">{{ t('branding.logoPreview') }}</p>
-            <div class="flex items-center gap-3 rounded-lg bg-gray-50 px-3 py-2">
-              <TenantLogo :src="logoUrl" :size="32" />
-              <span class="font-semibold text-gray-900">{{ form.app_name || tenantStore.appName }}</span>
+      <Card>
+        <CardContent class="space-y-4">
+          <div class="flex items-center justify-between">
+            <Label for="branding-primary-color" class="text-sm text-foreground">{{ t('branding.primaryColor') }}</Label>
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-muted-foreground">{{ form.primary_color }}</span>
+              <input
+                id="branding-primary-color"
+                v-model="form.primary_color"
+                type="color"
+                class="w-9 h-9 rounded-md cursor-pointer border"
+              />
             </div>
           </div>
-        </div>
+          <div class="flex items-center justify-between">
+            <Label for="branding-secondary-color" class="text-sm text-foreground">{{ t('branding.secondaryColor') }}</Label>
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-muted-foreground">{{ form.secondary_color }}</span>
+              <input
+                id="branding-secondary-color"
+                v-model="form.secondary_color"
+                type="color"
+                class="w-9 h-9 rounded-md cursor-pointer border"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        <p class="text-xs text-gray-400 mb-3">{{ t('branding.logoHint') }}</p>
+      <!-- Theme -->
+      <Card>
+        <CardContent>
+          <p class="text-sm font-medium mb-3">{{ t('branding.theme') }}</p>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label
+              v-for="theme in themes"
+              :key="theme"
+              class="flex items-center justify-center gap-2 border rounded-lg px-3 py-2.5 cursor-pointer text-sm transition-colors has-focus-visible:ring-3 has-focus-visible:ring-ring/50"
+              :class="form.theme === theme
+                ? 'border-primary bg-accent text-accent-foreground font-medium'
+                : 'text-muted-foreground hover:bg-muted'"
+            >
+              <input
+                v-model="form.theme"
+                type="radio"
+                :value="theme"
+                class="sr-only"
+              />
+              {{ t(`auth.themes.${theme}.label`) }}
+            </label>
+          </div>
+        </CardContent>
+      </Card>
 
-        <label class="inline-block cursor-pointer">
-          <span
-            class="inline-block bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-            :class="{ 'opacity-50 pointer-events-none': uploadingLogo }"
-          >
-            {{ uploadingLogo ? t('common.loading') : t('branding.uploadLogo') }}
-          </span>
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            class="sr-only"
-            :disabled="uploadingLogo"
-            @change="handleLogoUpload"
-          />
-        </label>
+      <!-- Valuta i jezik obaveštenja -->
+      <Card>
+        <CardContent class="space-y-4">
+          <div class="grid gap-2">
+            <Label for="branding-currency" class="text-sm text-foreground">{{ t('branding.currency') }}</Label>
+            <NativeSelect id="branding-currency" v-model="form.currency">
+              <NativeSelectOption v-for="currency in CURRENCIES" :key="currency" :value="currency">{{ currency }}</NativeSelectOption>
+            </NativeSelect>
+            <p class="text-xs text-muted-foreground">{{ t('branding.currencyHint') }}</p>
+          </div>
+          <div class="grid gap-2">
+            <Label for="branding-locale" class="text-sm text-foreground">{{ t('branding.locale') }}</Label>
+            <NativeSelect id="branding-locale" v-model="form.locale">
+              <NativeSelectOption value="sr">Srpski</NativeSelectOption>
+              <NativeSelectOption value="en">English</NativeSelectOption>
+            </NativeSelect>
+            <p class="text-xs text-muted-foreground">{{ t('branding.localeHint') }}</p>
+          </div>
+        </CardContent>
+      </Card>
 
-        <p v-if="uploadError" class="mt-2 text-red-500 text-sm">{{ uploadError }}</p>
-      </div>
+      <!-- Save button -->
+      <Button class="w-full" :disabled="saving" @click="handleSave">
+        {{ saving ? t('branding.saving') : saveStatus === 'saved' ? t('branding.saved') : t('branding.save') }}
+      </Button>
+      <p v-if="saveStatus === 'error'" class="text-destructive text-sm text-center">{{ saveError }}</p>
+
+      <!-- Logo -->
+      <Card>
+        <CardContent>
+          <p class="text-sm font-medium mb-3">{{ t('branding.logo') }}</p>
+
+          <div v-if="logoUrl" class="mb-4 flex flex-wrap items-end gap-6">
+            <img :src="logoUrl" alt="logo" class="h-16 w-auto max-w-[200px] object-contain rounded border p-1" />
+            <div>
+              <p class="text-xs text-muted-foreground mb-1.5">{{ t('branding.logoPreview') }}</p>
+              <div class="flex items-center gap-3 rounded-lg bg-muted/60 px-3 py-2">
+                <TenantLogo :src="logoUrl" :size="32" />
+                <span class="font-semibold">{{ form.app_name || tenantStore.appName }}</span>
+              </div>
+            </div>
+          </div>
+
+          <p class="text-xs text-muted-foreground mb-3">{{ t('branding.logoHint') }}</p>
+
+          <label class="inline-block cursor-pointer">
+            <span
+              :class="cn(buttonVariants({ variant: 'outline' }), uploadingLogo && 'opacity-50 pointer-events-none')"
+            >
+              {{ uploadingLogo ? t('common.loading') : t('branding.uploadLogo') }}
+            </span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              class="sr-only"
+              :disabled="uploadingLogo"
+              @change="handleLogoUpload"
+            />
+          </label>
+
+          <p v-if="uploadError" class="mt-2 text-destructive text-sm">{{ uploadError }}</p>
+        </CardContent>
+      </Card>
 
     </div>
   </AdminLayout>

@@ -1,12 +1,12 @@
 {
   "$schema": "https://shadcn-vue.com/schema.json",
-  "style": "reka-sera",
+  "style": "reka-vega",
   "font": "noto-sans",
   "typescript": true,
   "tailwind": {
     "config": "",
     "css": "src/style.css",
-    "baseColor": "taupe",
+    "baseColor": "gray",
     "cssVariables": true,
     "prefix": ""
   },

@@ -4,7 +4,7 @@ import { i18n } from '@/i18n'
 import { createTestRouter } from '../helpers'
 
 vi.mock('@/api/notifications', () => ({
-  notificationsApi: { getAll: vi.fn(), markRead: vi.fn(), markAllRead: vi.fn() },
+  notificationsApi: { getAll: vi.fn<(...args: unknown[]) => unknown>(), markRead: vi.fn<(...args: unknown[]) => unknown>(), markAllRead: vi.fn<(...args: unknown[]) => unknown>() },
 }))
 
 import { notificationsApi } from '@/api/notifications'
@@ -65,7 +65,7 @@ describe('NotificationList', () => {
     expect(text).toContain('10:00')
     expect(text).toContain('Marko')
     expect(text).toContain('Haircut')
-    expect(wrapper.find('span.rounded-full').text()).toBe('1')
+    expect(wrapper.find('[data-testid="unread-count"]').text()).toBe('1')
   })
 
   it('marks a notification read and opens the booking', async () => {

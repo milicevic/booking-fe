@@ -3,6 +3,10 @@ import { useI18n } from 'vue-i18n'
 import heroVisual from '@/assets/landing/hero-visual.png'
 import AppLogo from '@/components/brand/AppLogo.vue'
 import LangSwitcher from '@/components/LangSwitcher.vue'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
 import sparklesIcon from '@/assets/landing/sparkles.svg'
 import arrowRightIcon from '@/assets/landing/arrow-right.svg'
 import arrowRightSmIcon from '@/assets/landing/arrow-right-sm.svg'
@@ -26,6 +30,15 @@ import chartBarIcon from '@/assets/landing/chart-bar.svg'
 const { t } = useI18n()
 
 const year = new Date().getFullYear()
+
+// Landing ima svoj plavi brend; shadcn komponente ga preuzimaju preko tokena teme
+const landingTheme = {
+  '--primary': '#2563eb',
+  '--primary-foreground': '#ffffff',
+  '--accent': '#eef2ff',
+  '--accent-foreground': '#1d4ed8',
+  '--ring': '#93c5fd',
+}
 
 const navLinks = [
   { key: 'features', href: '#features' },
@@ -108,70 +121,60 @@ const footerColumns = [
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#f9fafb] font-['Inter',sans-serif] text-[#111827]">
+  <div class="min-h-screen bg-gray-50 font-['Inter',sans-serif] text-foreground" :style="landingTheme">
     <!-- Navbar -->
     <header
-      class="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b border-[#e5e7eb] bg-white px-5 py-4 lg:px-20"
+      class="sticky top-0 z-20 flex h-[72px] items-center justify-between border-b bg-card px-5 py-4 lg:px-20"
     >
       <RouterLink to="/" class="whitespace-nowrap">
         <AppLogo />
       </RouterLink>
 
       <nav class="hidden items-center gap-6 text-sm font-semibold md:flex">
-        <a v-for="link in navLinks" :key="link.key" :href="link.href" class="hover:text-[#2563eb]">
+        <a v-for="link in navLinks" :key="link.key" :href="link.href" class="hover:text-primary">
           {{ t(`landing.nav.${link.key}`) }}
         </a>
       </nav>
 
       <div class="flex items-center gap-3">
         <LangSwitcher />
-        <RouterLink
-          to="/admin/login"
-          class="hidden h-10 items-center justify-center rounded-full border border-[#e5e7eb] px-3.5 text-sm font-semibold hover:bg-[#f9fafb] sm:flex"
-        >
-          {{ t('landing.nav.login') }}
-        </RouterLink>
-        <RouterLink
-          to="/register"
-          class="flex h-10 items-center justify-center rounded-full bg-[#2563eb] px-4 text-sm font-bold whitespace-nowrap text-white shadow-[0_10px_12px_rgba(37,99,235,0.2)] hover:bg-[#1d4ed8]"
-        >
-          {{ t('landing.nav.getStarted') }}
-        </RouterLink>
+        <Button as-child variant="outline" class="hidden rounded-full px-3.5 font-semibold shadow-none sm:flex">
+          <RouterLink to="/admin/login">{{ t('landing.nav.login') }}</RouterLink>
+        </Button>
+        <Button as-child class="rounded-full font-bold shadow-[0_10px_12px_rgba(37,99,235,0.2)]">
+          <RouterLink to="/register">{{ t('landing.nav.getStarted') }}</RouterLink>
+        </Button>
       </div>
     </header>
 
     <!-- Hero -->
     <section class="flex flex-col items-center gap-16 px-5 py-12 lg:px-20 lg:py-[72px] xl:flex-row">
       <div class="flex w-full flex-col items-start gap-5 xl:w-[520px] xl:shrink-0">
-        <span
-          class="flex items-center gap-2 rounded-full border border-[#e0e7ff] bg-[#eef2ff] px-3 py-1.5"
-        >
+        <Badge variant="outline" class="h-auto gap-2 border-primary/15 bg-accent px-3 py-1.5">
           <img :src="sparklesIcon" alt="" width="16" height="16" class="shrink-0" />
-          <span class="text-xs font-bold text-[#2563eb] uppercase">
+          <span class="text-xs font-bold text-primary uppercase">
             {{ t('landing.hero.eyebrow') }}
           </span>
-        </span>
+        </Badge>
         <h1 class="text-4xl leading-[1.1] font-extrabold sm:text-[56px]">
           {{ t('landing.hero.title') }}
         </h1>
-        <p class="text-lg leading-[1.5] text-[#6b7280]">
+        <p class="text-lg leading-[1.5] text-muted-foreground">
           {{ t('landing.hero.subtitle') }}
         </p>
         <div class="flex flex-wrap items-center gap-3">
-          <RouterLink
-            to="/register"
-            class="flex h-12 items-center justify-center gap-2.5 rounded-full bg-[#2563eb] px-[22px] text-[15px] font-extrabold text-white shadow-[0_12px_13px_rgba(37,99,235,0.2)] hover:bg-[#1d4ed8]"
-          >
-            {{ t('landing.hero.ctaPrimary') }}
-            <img :src="arrowRightIcon" alt="" width="18" height="18" />
-          </RouterLink>
-          <a
-            href="#how-it-works"
-            class="flex h-12 items-center justify-center gap-2.5 rounded-full border border-[#e5e7eb] px-[18px] text-[15px] font-bold hover:bg-white"
-          >
-            <img :src="playIcon" alt="" width="18" height="18" />
-            {{ t('landing.hero.ctaSecondary') }}
-          </a>
+          <Button as-child class="h-12 gap-2.5 rounded-full px-[22px] text-[15px] font-extrabold shadow-[0_12px_13px_rgba(37,99,235,0.2)]">
+            <RouterLink to="/register">
+              {{ t('landing.hero.ctaPrimary') }}
+              <img :src="arrowRightIcon" alt="" width="18" height="18" />
+            </RouterLink>
+          </Button>
+          <Button as-child variant="outline" class="h-12 gap-2.5 rounded-full bg-transparent px-[18px] text-[15px] font-bold shadow-none hover:bg-card">
+            <a href="#how-it-works">
+              <img :src="playIcon" alt="" width="18" height="18" />
+              {{ t('landing.hero.ctaSecondary') }}
+            </a>
+          </Button>
         </div>
         <ul class="flex flex-wrap items-center gap-4">
           <li v-for="item in heroTrust" :key="item" class="flex items-center gap-2">
@@ -186,47 +189,44 @@ const footerColumns = [
       >
         <img :src="heroVisual" alt="" class="absolute inset-0 size-full object-cover" />
         <div class="absolute inset-0 bg-black/8" />
-        <span
-          class="absolute top-4 left-4 flex items-center gap-2 rounded-full border border-[#e5e7eb] bg-white/80 px-3 py-2 backdrop-blur-[9px]"
-        >
+        <Badge variant="outline" class="absolute top-4 left-4 h-auto gap-2 bg-card/80 px-3 py-2 backdrop-blur-[9px]">
           <img :src="shieldCheckIcon" alt="" width="16" height="16" />
           <span class="text-xs font-bold">{{ t('landing.hero.badge') }}</span>
-        </span>
+        </Badge>
         <div
-          class="absolute right-4 bottom-4 left-4 flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-[#e5e7eb] bg-white px-4 py-2 shadow-[0_10px_12px_rgba(0,0,0,0.07)]"
+          class="absolute right-4 bottom-4 left-4 flex min-h-14 items-center justify-between gap-3 rounded-2xl border bg-card px-4 py-2 shadow-[0_10px_12px_rgba(0,0,0,0.07)]"
         >
           <div class="flex min-w-0 flex-1 flex-col gap-0.5">
             <span class="text-[13px] font-extrabold">{{ t('landing.hero.bannerTitle') }}</span>
-            <span class="hidden text-xs text-[#6b7280] sm:block">
+            <span class="hidden text-xs text-muted-foreground sm:block">
               {{ t('landing.hero.bannerText') }}
             </span>
           </div>
-          <RouterLink
-            to="/register"
-            class="flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-[#2563eb] px-3.5 text-[13px] font-extrabold text-white hover:bg-[#1d4ed8]"
-          >
-            {{ t('landing.hero.bannerCta') }}
-            <img :src="arrowRightSmIcon" alt="" width="16" height="16" />
-          </RouterLink>
+          <Button as-child class="shrink-0 gap-2 rounded-full px-3.5 text-[13px] font-extrabold">
+            <RouterLink to="/register">
+              {{ t('landing.hero.bannerCta') }}
+              <img :src="arrowRightSmIcon" alt="" width="16" height="16" />
+            </RouterLink>
+          </Button>
         </div>
       </div>
     </section>
 
     <!-- Features -->
-    <section id="features" class="flex flex-col gap-10 bg-white px-5 py-16 lg:px-20 lg:py-24">
+    <section id="features" class="flex flex-col gap-10 bg-card px-5 py-16 lg:px-20 lg:py-24">
       <div class="flex flex-col items-center gap-3 text-center">
-        <p class="text-sm font-extrabold text-[#2563eb] uppercase">{{ t('landing.features.eyebrow') }}</p>
+        <p class="text-sm font-extrabold text-primary uppercase">{{ t('landing.features.eyebrow') }}</p>
         <h2 class="text-3xl font-extrabold lg:text-[40px]">{{ t('landing.features.title') }}</h2>
-        <p class="max-w-[720px] text-base leading-[1.5] text-[#6b7280]">
+        <p class="max-w-[720px] text-base leading-[1.5] text-muted-foreground">
           {{ t('landing.features.subtitle') }}
         </p>
       </div>
       <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <div
+        <Card
           v-for="(feature, i) in features"
           :key="feature.key"
           :class="[
-            'flex flex-col gap-3 rounded-2xl border border-[#e5e7eb] bg-white p-5 shadow-[0_2px_5px_rgba(0,0,0,0.04)] lg:min-h-[220px]',
+            'gap-3 rounded-2xl p-5 ring-0 border shadow-[0_2px_5px_rgba(0,0,0,0.04)] lg:min-h-[220px]',
             i === features.length - 1 && 'md:col-span-2 lg:col-span-3',
           ]"
         >
@@ -234,25 +234,25 @@ const footerColumns = [
             <img :src="feature.icon" alt="" width="22" height="22" />
           </span>
           <h3 class="text-lg font-extrabold">{{ t(`landing.features.${feature.key}.title`) }}</h3>
-          <p class="text-sm leading-[1.5] text-[#6b7280]">{{ t(`landing.features.${feature.key}.text`) }}</p>
-        </div>
+          <p class="text-sm leading-[1.5] text-muted-foreground">{{ t(`landing.features.${feature.key}.text`) }}</p>
+        </Card>
       </div>
     </section>
 
     <!-- How it works -->
-    <section id="how-it-works" class="flex flex-col gap-10 bg-[#f9fafb] px-5 py-16 lg:px-20 lg:py-24">
+    <section id="how-it-works" class="flex flex-col gap-10 bg-gray-50 px-5 py-16 lg:px-20 lg:py-24">
       <div class="flex flex-col items-center gap-3 text-center">
-        <p class="text-sm font-extrabold text-[#2563eb] uppercase">{{ t('landing.howItWorks.eyebrow') }}</p>
+        <p class="text-sm font-extrabold text-primary uppercase">{{ t('landing.howItWorks.eyebrow') }}</p>
         <h2 class="text-3xl font-extrabold lg:text-[40px]">{{ t('landing.howItWorks.title') }}</h2>
-        <p class="max-w-[720px] text-base leading-[1.5] text-[#6b7280]">
+        <p class="max-w-[720px] text-base leading-[1.5] text-muted-foreground">
           {{ t('landing.howItWorks.subtitle') }}
         </p>
       </div>
       <div class="grid gap-6 md:grid-cols-3">
-        <div
+        <Card
           v-for="(step, i) in steps"
           :key="step.key"
-          class="flex flex-col gap-3.5 rounded-2xl border border-[#e5e7eb] bg-white p-5 shadow-[0_2px_5px_rgba(0,0,0,0.04)] md:min-h-[320px]"
+          class="gap-3.5 rounded-2xl p-5 ring-0 border shadow-[0_2px_5px_rgba(0,0,0,0.04)] md:min-h-[320px]"
         >
           <span
             :class="[
@@ -264,17 +264,17 @@ const footerColumns = [
             {{ i + 1 }}
           </span>
           <h3 class="text-lg font-extrabold">{{ t(`landing.howItWorks.${step.key}.title`) }}</h3>
-          <p class="text-sm leading-[1.5] text-[#6b7280]">{{ t(`landing.howItWorks.${step.key}.text`) }}</p>
-        </div>
+          <p class="text-sm leading-[1.5] text-muted-foreground">{{ t(`landing.howItWorks.${step.key}.text`) }}</p>
+        </Card>
       </div>
     </section>
 
     <!-- Social proof -->
-    <section id="testimonials" class="flex flex-col gap-10 bg-white px-5 py-16 lg:px-20 lg:py-24">
+    <section id="testimonials" class="flex flex-col gap-10 bg-card px-5 py-16 lg:px-20 lg:py-24">
       <div class="flex flex-col items-center gap-3 text-center">
-        <p class="text-sm font-extrabold text-[#2563eb] uppercase">{{ t('landing.testimonials.eyebrow') }}</p>
+        <p class="text-sm font-extrabold text-primary uppercase">{{ t('landing.testimonials.eyebrow') }}</p>
         <h2 class="text-3xl font-extrabold lg:text-[40px]">{{ t('landing.testimonials.title') }}</h2>
-        <p class="max-w-[720px] text-base leading-[1.5] text-[#6b7280]">
+        <p class="max-w-[720px] text-base leading-[1.5] text-muted-foreground">
           {{ t('landing.testimonials.subtitle') }}
         </p>
       </div>
@@ -282,7 +282,7 @@ const footerColumns = [
         <figure
           v-for="quote in quotes"
           :key="quote.key"
-          class="flex flex-col gap-4 rounded-2xl border border-[#e5e7eb] bg-white p-6 shadow-[0_2px_5px_rgba(0,0,0,0.04)]"
+          class="flex flex-col gap-4 rounded-2xl border bg-card p-6 text-card-foreground shadow-[0_2px_5px_rgba(0,0,0,0.04)]"
         >
           <blockquote class="text-base leading-[1.5]">{{ t(`landing.testimonials.${quote.key}.quote`) }}</blockquote>
           <figcaption class="flex items-center gap-2.5">
@@ -297,7 +297,7 @@ const footerColumns = [
             </span>
             <span class="flex flex-col gap-0.5">
               <span class="text-sm font-extrabold">{{ quote.name }}</span>
-              <span class="text-[13px] text-[#6b7280]">{{ t(`landing.testimonials.${quote.key}.role`) }}</span>
+              <span class="text-[13px] text-muted-foreground">{{ t(`landing.testimonials.${quote.key}.role`) }}</span>
             </span>
           </figcaption>
         </figure>
@@ -305,34 +305,34 @@ const footerColumns = [
     </section>
 
     <!-- Pricing -->
-    <section id="pricing" class="flex flex-col gap-10 bg-[#f9fafb] px-5 py-16 lg:px-20 lg:py-24">
+    <section id="pricing" class="flex flex-col gap-10 bg-gray-50 px-5 py-16 lg:px-20 lg:py-24">
       <div class="flex flex-col items-center gap-3 text-center">
-        <p class="text-sm font-extrabold text-[#2563eb] uppercase">{{ t('landing.pricing.eyebrow') }}</p>
+        <p class="text-sm font-extrabold text-primary uppercase">{{ t('landing.pricing.eyebrow') }}</p>
         <h2 class="text-3xl font-extrabold lg:text-[40px]">{{ t('landing.pricing.title') }}</h2>
-        <p class="max-w-[720px] text-base leading-[1.5] text-[#6b7280]">
+        <p class="max-w-[720px] text-base leading-[1.5] text-muted-foreground">
           {{ t('landing.pricing.subtitle') }}
         </p>
       </div>
       <div class="grid gap-6 md:grid-cols-2">
-        <div
+        <Card
           v-for="plan in plans"
           :key="plan.key"
           :class="[
-            'flex flex-col gap-4 rounded-2xl bg-white p-6 md:min-h-[420px]',
+            'gap-4 rounded-2xl p-6 ring-0 md:min-h-[420px]',
             plan.featured
-              ? 'border-2 border-[#2563eb] shadow-[0_18px_40px_rgba(37,99,235,0.12),0_2px_10px_rgba(0,0,0,0.04)]'
-              : 'border border-[#e5e7eb] shadow-[0_2px_5px_rgba(0,0,0,0.04)]',
+              ? 'border-2 border-primary shadow-[0_18px_40px_rgba(37,99,235,0.12),0_2px_10px_rgba(0,0,0,0.04)]'
+              : 'border shadow-[0_2px_5px_rgba(0,0,0,0.04)]',
           ]"
         >
           <div class="flex flex-col gap-1.5">
             <h3 :class="['text-base', plan.featured ? 'font-black' : 'font-extrabold']">
               {{ t(`landing.pricing.${plan.key}.name`) }}
             </h3>
-            <p class="text-[13px] text-[#6b7280]">{{ t(`landing.pricing.${plan.key}.desc`) }}</p>
+            <p class="text-[13px] text-muted-foreground">{{ t(`landing.pricing.${plan.key}.desc`) }}</p>
           </div>
           <p class="flex items-baseline gap-2">
             <span class="text-[40px] font-black">{{ plan.price }}</span>
-            <span class="text-sm text-[#6b7280]">{{ t('landing.pricing.perMonth') }}</span>
+            <span class="text-sm text-muted-foreground">{{ t('landing.pricing.perMonth') }}</span>
           </p>
           <ul class="flex flex-col gap-2.5">
             <li v-for="item in plan.items" :key="item" class="flex items-center gap-2.5 text-sm">
@@ -340,44 +340,46 @@ const footerColumns = [
               {{ t(`landing.pricing.${plan.key}.${item}`) }}
             </li>
           </ul>
-          <RouterLink
-            to="/register"
-            :class="[
-              'flex h-11 w-full items-center justify-center rounded-xl text-sm',
-              plan.featured
-                ? 'bg-[#2563eb] font-extrabold text-white hover:bg-[#1d4ed8]'
-                : 'border border-[#e5e7eb] font-bold hover:bg-[#f9fafb]',
-            ]"
+          <Button
+            as-child
+            :variant="plan.featured ? 'default' : 'outline'"
+            :class="['h-11 w-full rounded-xl shadow-none', plan.featured ? 'font-extrabold' : 'font-bold']"
           >
-            {{ t(`landing.pricing.${plan.key}.cta`) }}
-          </RouterLink>
-        </div>
+            <RouterLink to="/register">{{ t(`landing.pricing.${plan.key}.cta`) }}</RouterLink>
+          </Button>
+        </Card>
       </div>
     </section>
 
     <!-- CTA -->
-    <section class="flex flex-col items-center gap-6 bg-[#2563eb] px-5 py-16 text-center lg:px-20 lg:py-[72px]">
+    <section class="flex flex-col items-center gap-6 bg-primary px-5 py-16 text-center lg:px-20 lg:py-[72px]">
       <div class="flex flex-col items-center gap-4">
-        <h2 class="text-3xl font-black text-white lg:text-[44px]">{{ t('landing.cta.title') }}</h2>
-        <p class="max-w-[720px] text-base leading-[1.5] text-white/80">
+        <h2 class="text-3xl font-black text-primary-foreground lg:text-[44px]">{{ t('landing.cta.title') }}</h2>
+        <p class="max-w-[720px] text-base leading-[1.5] text-primary-foreground/80">
           {{ t('landing.cta.subtitle') }}
         </p>
       </div>
       <div class="flex flex-wrap items-center justify-center gap-3">
-        <RouterLink
-          to="/register"
-          class="flex h-[52px] items-center justify-center gap-2.5 rounded-full bg-white px-[22px] text-[15px] font-black text-[#2563eb] shadow-[0_14px_15px_rgba(0,0,0,0.15)] hover:bg-[#eef2ff]"
+        <Button
+          as-child
+          variant="outline"
+          class="h-[52px] gap-2.5 rounded-full border-transparent bg-white px-[22px] text-[15px] font-black text-primary shadow-[0_14px_15px_rgba(0,0,0,0.15)] hover:bg-accent hover:text-primary"
         >
-          {{ t('landing.cta.primary') }}
-          <img :src="arrowRightBlueIcon" alt="" width="18" height="18" />
-        </RouterLink>
-        <a
-          href="#how-it-works"
-          class="flex h-[52px] items-center justify-center gap-2.5 rounded-full border border-white/40 px-[18px] text-[15px] font-extrabold text-white hover:bg-white/10"
+          <RouterLink to="/register">
+            {{ t('landing.cta.primary') }}
+            <img :src="arrowRightBlueIcon" alt="" width="18" height="18" />
+          </RouterLink>
+        </Button>
+        <Button
+          as-child
+          variant="outline"
+          class="h-[52px] gap-2.5 rounded-full border-white/40 bg-transparent px-[18px] text-[15px] font-extrabold text-white shadow-none hover:bg-white/10 hover:text-white"
         >
-          <img :src="playWhiteIcon" alt="" width="18" height="18" />
-          {{ t('landing.cta.secondary') }}
-        </a>
+          <a href="#how-it-works">
+            <img :src="playWhiteIcon" alt="" width="18" height="18" />
+            {{ t('landing.cta.secondary') }}
+          </a>
+        </Button>
       </div>
       <ul class="flex flex-wrap items-center justify-center gap-4 opacity-90">
         <li v-for="item in ctaTrust" :key="item.key" class="flex items-center gap-2">
@@ -388,7 +390,7 @@ const footerColumns = [
     </section>
 
     <!-- Footer -->
-    <footer id="footer" class="flex flex-col gap-10 bg-[#111827] px-5 pt-14 pb-10 lg:px-20">
+    <footer id="footer" class="flex flex-col gap-10 bg-gray-900 px-5 pt-14 pb-10 lg:px-20">
       <div class="flex flex-col justify-between gap-10 md:flex-row">
         <div class="flex max-w-[360px] flex-col gap-3">
           <AppLogo theme="dark" :tagline="false" :size="28" />
@@ -410,7 +412,7 @@ const footerColumns = [
           </div>
         </div>
       </div>
-      <div class="h-px w-full bg-white/12" />
+      <Separator class="bg-white/12" />
       <div class="flex flex-wrap items-center justify-between gap-4 text-[13px] text-white/50">
         <p>{{ t('landing.footer.copyright', { year }) }}</p>
         <div class="flex items-center gap-4">

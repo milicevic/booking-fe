@@ -1,8 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
+import { PencilIcon, XIcon } from '@lucide/vue'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import { servicesApi } from '@/api/services'
 import { adminApi } from '@/api/admin'
 import type { Service } from '@/api/services'
@@ -14,6 +22,9 @@ import { useTenantStore } from '@/stores/tenant'
 
 const { t, locale } = useI18n()
 const tenantStore = useTenantStore()
+const priceLabel = computed(() =>
+  tenantStore.config?.currency ? `${t('services.price')} (${tenantStore.config.currency})` : t('services.price')
+)
 const { confirm } = useConfirm()
 const adminContext = useAdminContextStore()
 
@@ -155,131 +166,107 @@ async function toggleWorkerAssignment(service: Service, worker: Worker) {
 <template>
   <AdminLayout>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-xl font-semibold text-gray-900">{{ t('services.title') }}</h1>
-      <button
-        @click="showForm = !showForm"
-        class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-      >
-        {{ t('services.addBtn') }}
-      </button>
+      <h1 class="text-xl font-semibold">{{ t('services.title') }}</h1>
+      <Button @click="showForm = !showForm">{{ t('services.addBtn') }}</Button>
     </div>
 
     <!-- Create form -->
-    <div v-if="showForm" class="bg-white rounded-xl border border-gray-100 p-5 mb-6">
-      <div class="space-y-3">
-        <input
+    <Card v-if="showForm" class="mb-6">
+      <CardContent class="space-y-3">
+        <Input
           v-model="form.name"
           type="text"
+          :aria-label="t('services.name')"
           :placeholder="t('services.name') + ' *'"
-          class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
-        <div class="flex gap-3">
-          <input
-            v-model="form.duration_minutes"
-            type="number"
-            min="1"
-            :placeholder="t('services.duration')"
-            class="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <input
-            v-model="form.price"
-            type="number"
-            min="0"
-            step="0.01"
-            :placeholder="t('services.price') + ' (' + t('common.optional') + ')'"
-            class="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-          <input v-model="form.is_active" type="checkbox" class="rounded" />
-          {{ t('services.active') }}
-        </label>
-        <p v-if="error" class="text-red-500 text-sm">{{ error }}</p>
-        <div class="flex gap-2">
-          <button
-            @click="handleCreate"
-            :disabled="submitting"
-            class="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
-          >
-            {{ submitting ? t('services.saving') : t('common.save') }}
-          </button>
-          <button
-            @click="showForm = false; error = ''"
-            class="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-medium py-2.5 rounded-lg transition-colors"
-          >
-            {{ t('common.cancel') }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="loading" class="text-gray-400 text-sm">{{ t('common.loading') }}</div>
-
-    <div v-else class="space-y-2">
-      <!-- Service row -->
-      <div
-        v-for="service in services"
-        :key="service.id"
-        class="bg-white rounded-xl border border-gray-100 overflow-hidden"
-      >
-        <!-- Edit form -->
-        <div v-if="editingId === service.id" class="p-4 space-y-3">
-          <input
-            v-model="editForm.name"
-            type="text"
-            :placeholder="t('services.name')"
-            class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <div class="flex gap-3">
-            <input
-              v-model="editForm.duration_minutes"
-              type="number"
-              min="1"
-              :placeholder="t('services.duration')"
-              class="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            <input
-              v-model="editForm.price"
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="grid gap-1.5 min-w-0">
+            <Label for="service-duration">{{ t('services.duration') }}</Label>
+            <Input id="service-duration" v-model="form.duration_minutes" type="number" min="1" class="min-w-0" />
+          </div>
+          <div class="grid gap-1.5 min-w-0">
+            <Label for="service-price">{{ priceLabel }}</Label>
+            <Input
+              id="service-price"
+              v-model="form.price"
               type="number"
               min="0"
               step="0.01"
-              :placeholder="t('services.price')"
-              class="flex-1 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              :placeholder="t('common.optional')"
+              class="min-w-0"
             />
           </div>
-          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input v-model="editForm.is_active" type="checkbox" class="rounded" />
-            {{ t('services.active') }}
-          </label>
-          <p v-if="error" class="text-red-500 text-sm">{{ error }}</p>
-          <div class="flex gap-2">
-            <button
-              @click="handleUpdate(service.id)"
-              :disabled="submitting"
-              class="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
-            >
+        </div>
+        <div class="flex items-center gap-2">
+          <Checkbox id="service-active" v-model="form.is_active" />
+          <Label for="service-active" class="text-sm font-normal text-foreground">{{ t('services.active') }}</Label>
+        </div>
+        <p v-if="error" class="text-destructive text-sm">{{ error }}</p>
+        <div class="flex gap-2 sm:justify-end">
+          <Button class="flex-1 sm:flex-none sm:px-6" :disabled="submitting" @click="handleCreate">
+            {{ submitting ? t('services.saving') : t('common.save') }}
+          </Button>
+          <Button variant="outline" class="flex-1 sm:flex-none sm:px-6" @click="showForm = false; error = ''">
+            {{ t('common.cancel') }}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+
+    <div v-if="loading" class="text-muted-foreground text-sm">{{ t('common.loading') }}</div>
+
+    <div v-else class="space-y-2">
+      <!-- Service row -->
+      <Card v-for="service in services" :key="service.id" class="gap-0 py-0">
+        <!-- Edit form -->
+        <div v-if="editingId === service.id" class="p-4 space-y-3">
+          <Input
+            v-model="editForm.name"
+            type="text"
+            :aria-label="t('services.name')"
+            :placeholder="t('services.name')"
+          />
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="grid gap-1.5 min-w-0">
+              <Label :for="`service-duration-${service.id}`">{{ t('services.duration') }}</Label>
+              <Input :id="`service-duration-${service.id}`" v-model="editForm.duration_minutes" type="number" min="1" class="min-w-0" />
+            </div>
+            <div class="grid gap-1.5 min-w-0">
+              <Label :for="`service-price-${service.id}`">{{ priceLabel }}</Label>
+              <Input
+                :id="`service-price-${service.id}`"
+                v-model="editForm.price"
+                type="number"
+                min="0"
+                step="0.01"
+                :placeholder="t('common.optional')"
+                class="min-w-0"
+              />
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <Checkbox :id="`service-active-${service.id}`" v-model="editForm.is_active" />
+            <Label :for="`service-active-${service.id}`" class="text-sm font-normal text-foreground">{{ t('services.active') }}</Label>
+          </div>
+          <p v-if="error" class="text-destructive text-sm">{{ error }}</p>
+          <div class="flex gap-2 sm:justify-end">
+            <Button class="flex-1 sm:flex-none sm:px-6" :disabled="submitting" @click="handleUpdate(service.id)">
               {{ submitting ? t('services.saving') : t('common.save') }}
-            </button>
-            <button
-              @click="editingId = null"
-              class="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-medium py-2.5 rounded-lg transition-colors"
-            >
+            </Button>
+            <Button variant="outline" class="flex-1 sm:flex-none sm:px-6" @click="editingId = null">
               {{ t('common.cancel') }}
-            </button>
+            </Button>
           </div>
         </div>
 
         <!-- Normal view -->
-        <div v-else class="p-4 flex items-center justify-between">
-          <div>
-            <div class="flex items-center gap-2">
-              <p class="text-sm font-medium text-gray-900">{{ service.name }}</p>
-              <span
-                v-if="service.is_active"
-                class="text-[10px] bg-green-100 text-green-700 font-medium px-1.5 py-0.5 rounded-full"
-              >
+        <div v-else class="p-4 flex items-start sm:items-center justify-between gap-3">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="text-sm font-medium break-words">{{ service.name }}</p>
+              <Badge v-if="service.is_active" class="bg-green-100 text-green-700">
                 {{ t('services.active') }}
-              </span>
+              </Badge>
             </div>
             <p
               v-if="workers.length > 0 && !service.workers?.length"
@@ -288,58 +275,61 @@ async function toggleWorkerAssignment(service: Service, worker: Worker) {
             >
               {{ t('services.unassigned') }}
             </p>
-            <p class="text-xs text-gray-400 mt-0.5">
+            <p class="text-xs text-muted-foreground mt-0.5">
               {{ service.duration_minutes }} min
               <template v-if="service.price"> · {{ formatPrice(service.price, locale, tenantStore.config?.currency) }}</template>
             </p>
           </div>
 
-          <div class="flex items-center gap-3">
-            <button
-              @click="toggleWorkers(service.id)"
-              class="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
-            >
+          <div class="flex items-center gap-1 shrink-0">
+            <Button variant="link" size="xs" class="px-1" @click="toggleWorkers(service.id)">
               {{ t('services.assignWorkers') }}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              class="text-muted-foreground"
+              :aria-label="t('services.edit')"
               @click="startEdit(service)"
-              class="text-xs text-gray-400 hover:text-gray-600 transition-colors"
             >
-              ✏️
-            </button>
-            <button
+              <PencilIcon />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              class="text-muted-foreground hover:text-destructive"
+              :aria-label="t('common.delete')"
               @click="handleDelete(service)"
-              class="text-gray-300 hover:text-red-400 transition-colors text-lg leading-none"
             >
-              ×
-            </button>
+              <XIcon />
+            </Button>
           </div>
         </div>
 
         <!-- Worker assignment section -->
-        <div v-if="expandedWorkers[service.id] && editingId !== service.id" class="border-t border-gray-50 px-4 py-3">
-          <div v-if="workers.length === 0" class="text-xs text-gray-400">
-            {{ t('workers.noWorkers') }}
+        <template v-if="expandedWorkers[service.id] && editingId !== service.id">
+          <Separator />
+          <div class="px-4 py-3">
+            <div v-if="workers.length === 0" class="text-xs text-muted-foreground">
+              {{ t('workers.noWorkers') }}
+            </div>
+            <div v-else class="space-y-2">
+              <div v-for="worker in workers" :key="worker.id" class="flex items-center gap-2.5">
+                <Checkbox
+                  :id="`service-${service.id}-worker-${worker.id}`"
+                  :model-value="isWorkerAssigned(service, worker.id)"
+                  @update:model-value="toggleWorkerAssignment(service, worker)"
+                />
+                <Label :for="`service-${service.id}-worker-${worker.id}`" class="text-sm font-normal text-foreground">
+                  {{ worker.name }}
+                </Label>
+              </div>
+            </div>
           </div>
-          <div v-else class="space-y-2">
-            <label
-              v-for="worker in workers"
-              :key="worker.id"
-              class="flex items-center gap-2.5 cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                :checked="isWorkerAssigned(service, worker.id)"
-                @change="toggleWorkerAssignment(service, worker)"
-                class="rounded text-indigo-600"
-              />
-              <span class="text-sm text-gray-700">{{ worker.name }}</span>
-            </label>
-          </div>
-        </div>
-      </div>
+        </template>
+      </Card>
 
-      <div v-if="services.length === 0" class="text-center py-8 text-gray-400 text-sm">
+      <div v-if="services.length === 0" class="text-center py-8 text-muted-foreground text-sm">
         {{ t('services.noServices') }}
       </div>
     </div>

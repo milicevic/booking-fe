@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { tenantApi } from '@/api/tenant'
 import type { TenantConfig } from '@/api/tenant'
+import { isHexColor, readableForeground } from '@/lib/color'
 
 export const useTenantStore = defineStore('tenant', () => {
   const config = ref<TenantConfig | null>(null)
@@ -35,8 +36,11 @@ export const useTenantStore = defineStore('tenant', () => {
 
   function applyTheme(cfg: TenantConfig) {
     const root = document.documentElement
-    if (cfg.primary_color) root.style.setProperty('--color-primary', cfg.primary_color)
-    if (cfg.secondary_color) root.style.setProperty('--color-secondary', cfg.secondary_color)
+    // Boja firme postaje --primary teme; nijanse (accent, ring) se izvode iz nje u style.css
+    if (isHexColor(cfg.primary_color)) {
+      root.style.setProperty('--primary', cfg.primary_color)
+      root.style.setProperty('--primary-foreground', readableForeground(cfg.primary_color))
+    }
     if (cfg.theme) root.setAttribute('data-theme', cfg.theme)
   }
 

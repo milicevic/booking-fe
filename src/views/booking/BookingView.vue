@@ -9,6 +9,12 @@ import { useTenantStore } from '@/stores/tenant'
 import { useToast } from '@/composables/useToast'
 import TenantLogo from '@/components/TenantLogo.vue'
 import MyBookings from '@/components/booking/MyBookings.vue'
+import { ChevronLeftIcon, ChevronRightIcon } from '@lucide/vue'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { rememberBooking } from '@/lib/myBookings'
 import { apiErrorMessage } from '@/lib/apiError'
 import { formatPrice } from '@/lib/price'
@@ -246,22 +252,22 @@ async function handleSubmit() {
       <div class="mb-6">
         <div class="flex items-center gap-3 mb-2">
           <TenantLogo :src="tenant.logoUrl" :size="32" />
-          <span class="font-semibold text-gray-900 text-lg">{{ tenant.appName }}</span>
+          <span class="font-semibold text-lg">{{ tenant.appName }}</span>
         </div>
-        <h1 class="text-2xl font-semibold text-gray-900">{{ t('booking.title') }}</h1>
+        <h1 class="text-2xl font-semibold">{{ t('booking.title') }}</h1>
       </div>
 
       <MyBookings />
 
-      <div v-if="loading" class="text-center py-16 text-gray-400">
+      <div v-if="loading" class="text-center py-16 text-muted-foreground">
         {{ t('common.loading') }}
       </div>
 
-      <div v-else-if="error && allSlots.length === 0" class="text-center py-8 text-red-500 text-sm">
+      <div v-else-if="error && allSlots.length === 0" class="text-center py-8 text-destructive text-sm">
         {{ error }}
       </div>
 
-      <div v-else-if="allSlots.length === 0" class="text-center py-8 text-gray-400 text-sm">
+      <div v-else-if="allSlots.length === 0" class="text-center py-8 text-muted-foreground text-sm">
         {{ t('booking.noSlots') }}
       </div>
 
@@ -269,41 +275,45 @@ async function handleSubmit() {
 
         <!-- Step 1: Select worker -->
         <div class="mb-6">
-          <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">{{ t('booking.selectWorker') }}</p>
+          <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">{{ t('booking.selectWorker') }}</p>
           <div class="flex flex-wrap gap-3">
-            <button
+            <Button
               v-for="w in workers"
               :key="w.id"
+              variant="outline"
+              :aria-pressed="selectedWorkerId === w.id"
+              :class="[
+                'h-auto gap-2.5 rounded-xl px-4 py-2.5 shadow-none',
+                selectedWorkerId === w.id ? 'border-primary bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground' : '',
+              ]"
               @click="pickWorker(w.id)"
-              :class="selectedWorkerId === w.id
-                ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'"
-              class="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border transition-colors"
             >
-              <span class="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 text-xs font-semibold flex items-center justify-center shrink-0">
+              <span class="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center shrink-0">
                 {{ w.name.charAt(0).toUpperCase() }}
               </span>
               <span class="text-sm font-medium">{{ w.name }}</span>
-            </button>
+            </Button>
           </div>
         </div>
 
         <!-- Step 2: Select service (if worker has services) -->
         <div v-if="selectedWorkerId && workerServices.length > 0" class="mb-6">
-          <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">{{ t('booking.selectService') }}</p>
+          <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">{{ t('booking.selectService') }}</p>
           <div class="flex flex-wrap gap-2">
-            <button
+            <Button
               v-for="service in workerServices"
               :key="service.id"
+              variant="outline"
+              :aria-pressed="selectedService?.id === service.id"
+              :class="[
+                'h-auto rounded-xl px-4 py-2.5 shadow-none text-left whitespace-normal',
+                selectedService?.id === service.id ? 'border-primary bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground' : '',
+              ]"
               @click="pickService(service)"
-              :class="selectedService?.id === service.id
-                ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'"
-              class="px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left"
             >
               <span>{{ service.name }}</span>
-              <span v-if="service.price" class="ml-1.5 font-normal opacity-70">{{ formatPrice(service.price, locale, tenant.config?.currency) }}</span>
-            </button>
+              <span v-if="service.price" class="ml-0.5 font-normal opacity-70">{{ formatPrice(service.price, locale, tenant.config?.currency) }}</span>
+            </Button>
           </div>
         </div>
 
@@ -312,167 +322,166 @@ async function handleSubmit() {
 
           <!-- Calendar -->
           <div class="lg:w-80 shrink-0">
-            <div class="bg-white rounded-xl border border-gray-100 p-4">
-              <div class="flex items-center justify-between mb-4">
-                <button @click="prevMonth"
-                  class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors text-lg">
-                  ‹
-                </button>
-                <span class="text-sm font-medium text-gray-900 capitalize">{{ monthLabel }}</span>
-                <button @click="nextMonth"
-                  class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors text-lg">
-                  ›
-                </button>
-              </div>
-
-              <div class="grid grid-cols-7 mb-1">
-                <div v-for="d in calDays" :key="d"
-                  class="text-center text-xs text-gray-400 py-1">{{ d }}</div>
-              </div>
-
-              <div class="grid grid-cols-7 gap-0.5">
-                <div v-for="(day, i) in calendarDays" :key="i">
-                  <div v-if="!day" class="h-9" />
-                  <button
-                    v-else
-                    @click="pickDate(day)"
-                    :disabled="day.past || !day.available"
-                    :class="[
-                      'w-full h-9 rounded-lg text-xs font-medium transition-colors',
-                      day.past || !day.available
-                        ? 'text-gray-300 cursor-default'
-                        : selectedDate === day.date
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100',
-                    ]"
-                  >
-                    {{ day.day }}
-                  </button>
+            <Card size="sm">
+              <CardContent>
+                <div class="flex items-center justify-between mb-4">
+                  <Button variant="ghost" size="icon-sm" class="text-muted-foreground" :aria-label="t('common.prevMonth')" @click="prevMonth">
+                    <ChevronLeftIcon />
+                  </Button>
+                  <span class="text-sm font-medium capitalize">{{ monthLabel }}</span>
+                  <Button variant="ghost" size="icon-sm" class="text-muted-foreground" :aria-label="t('common.nextMonth')" @click="nextMonth">
+                    <ChevronRightIcon />
+                  </Button>
                 </div>
-              </div>
 
-              <div class="mt-4 flex items-center gap-3 text-xs text-gray-400">
-                <span class="flex items-center gap-1">
-                  <span class="w-3 h-3 rounded bg-indigo-50 inline-block" /> {{ t('booking.available') }}
-                </span>
-              </div>
-            </div>
+                <div class="grid grid-cols-7 mb-1">
+                  <div v-for="d in calDays" :key="d"
+                    class="text-center text-xs text-muted-foreground py-1">{{ d }}</div>
+                </div>
+
+                <div class="grid grid-cols-7 gap-0.5">
+                  <div v-for="(day, i) in calendarDays" :key="i">
+                    <div v-if="!day" class="h-9" />
+                    <Button
+                      v-else
+                      :variant="selectedDate === day.date ? 'default' : 'ghost'"
+                      size="sm"
+                      :disabled="day.past || !day.available"
+                      :aria-pressed="selectedDate === day.date"
+                      :class="[
+                        'w-full h-9 text-xs',
+                        day.past || !day.available
+                          ? 'text-muted-foreground/40 disabled:opacity-100'
+                          : selectedDate !== day.date && 'bg-accent text-accent-foreground hover:bg-primary/15',
+                      ]"
+                      @click="pickDate(day)"
+                    >
+                      {{ day.day }}
+                    </Button>
+                  </div>
+                </div>
+
+                <div class="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
+                  <span class="flex items-center gap-1">
+                    <span class="w-3 h-3 rounded bg-accent inline-block" /> {{ t('booking.available') }}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <!-- Right column -->
           <div class="flex-1">
 
             <!-- No date selected -->
-            <div v-if="!selectedDate"
-              class="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-400">
-              <p class="text-2xl mb-2">📅</p>
-              <p class="text-sm">{{ t('booking.selectDate') }}</p>
-            </div>
+            <Card v-if="!selectedDate">
+              <CardContent class="py-2 text-center text-muted-foreground">
+                <p class="text-2xl mb-2">📅</p>
+                <p class="text-sm">{{ t('booking.selectDate') }}</p>
+              </CardContent>
+            </Card>
 
             <!-- Date selected, pick slot -->
             <div v-else-if="!selectedSlot">
               <div class="flex items-center gap-2 mb-4">
-                <button @click="selectedDate = null"
-                  class="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                <Button variant="link" size="xs" class="px-0 text-muted-foreground" @click="selectedDate = null">
                   {{ t('booking.backCalendar') }}
-                </button>
-                <span class="text-gray-300">·</span>
-                <p class="text-sm font-medium text-gray-900 capitalize">
+                </Button>
+                <span class="text-muted-foreground/50">·</span>
+                <p class="text-sm font-medium capitalize">
                   {{ formatDate(selectedDate) }}
                 </p>
               </div>
 
-              <div v-if="timesForDate.length === 0"
-                class="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-400 text-sm">
-                {{ t('booking.noSlotsDay') }}
-              </div>
+              <Card v-if="timesForDate.length === 0">
+                <CardContent class="py-2 text-center text-muted-foreground text-sm">
+                  {{ t('booking.noSlotsDay') }}
+                </CardContent>
+              </Card>
 
               <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                <button
+                <Button
                   v-for="slot in timesForDate"
                   :key="`${slot.slot_id}-${slot.start_time}`"
+                  variant="outline"
+                  class="h-auto justify-start rounded-xl bg-card p-4 shadow-none hover:border-primary/60 hover:bg-card hover:shadow-sm"
                   @click="pickSlot(slot)"
-                  class="bg-white border border-gray-200 rounded-xl p-4 text-left hover:border-indigo-400 hover:shadow-sm transition-all"
                 >
-                  <p class="font-medium text-gray-900 text-sm">
-                    {{ slot.start_time.slice(0, 5) }} — {{ slot.end_time.slice(0, 5) }}
-                  </p>
-                </button>
+                  {{ slot.start_time.slice(0, 5) }} — {{ slot.end_time.slice(0, 5) }}
+                </Button>
               </div>
             </div>
 
             <!-- Slot selected: form -->
             <div v-else>
-              <div class="bg-indigo-50 rounded-xl p-4 mb-5 flex items-start justify-between">
+              <div class="bg-accent text-accent-foreground rounded-xl p-4 mb-5 flex items-start justify-between">
                 <div>
-                  <p class="text-sm font-medium text-indigo-900">
+                  <p class="text-sm font-medium">
                     {{ workers.find(w => w.id === selectedWorkerId)?.name }}
-                    <span v-if="selectedService" class="font-normal text-indigo-600"> · {{ selectedService.name }}<template v-if="selectedService.price"> ({{ formatPrice(selectedService.price, locale, tenant.config?.currency) }})</template></span>
+                    <span v-if="selectedService" class="font-normal opacity-80"> · {{ selectedService.name }}<template v-if="selectedService.price"> ({{ formatPrice(selectedService.price, locale, tenant.config?.currency) }})</template></span>
                   </p>
-                  <p class="text-sm text-indigo-700 capitalize mt-0.5">
+                  <p class="text-sm capitalize mt-0.5 opacity-90">
                     {{ formatDate(selectedSlot.date) }}
                   </p>
-                  <p class="text-indigo-700 text-sm">
+                  <p class="text-sm opacity-90">
                     {{ selectedSlot.start_time.slice(0, 5) }} — {{ selectedSlot.end_time.slice(0, 5) }}
                   </p>
                 </div>
-                <button @click="selectedSlot = null"
-                  class="text-xs text-indigo-500 hover:text-indigo-700 transition-colors">
+                <Button variant="link" size="xs" class="px-0" @click="selectedSlot = null">
                   {{ t('booking.change') }}
-                </button>
+                </Button>
               </div>
 
-              <div class="bg-white rounded-xl border border-gray-100 p-5">
-                <h2 class="text-sm font-semibold text-gray-900 mb-4">{{ t('booking.yourDetails') }}</h2>
+              <Card>
+                <CardContent>
+                  <h2 class="text-sm font-semibold mb-4">{{ t('booking.yourDetails') }}</h2>
 
-                <form @submit.prevent="handleSubmit" class="space-y-4">
-                  <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1.5">
-                      {{ t('booking.fullName') }} <span class="text-red-400">*</span>
-                    </label>
-                    <input v-model="form.customer_name" type="text" :placeholder="t('booking.fullNamePlaceholder')"
-                      class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                  </div>
+                  <form @submit.prevent="handleSubmit" class="space-y-4">
+                    <div class="grid gap-1.5">
+                      <Label for="booking-name">
+                        {{ t('booking.fullName') }} <span class="text-destructive">*</span>
+                      </Label>
+                      <Input id="booking-name" v-model="form.customer_name" type="text" :placeholder="t('booking.fullNamePlaceholder')" />
+                    </div>
 
-                  <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('booking.email') }}</label>
-                    <input v-model="form.customer_email" type="email" placeholder="vas@email.com"
-                      class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                  </div>
+                    <div class="grid gap-1.5">
+                      <Label for="booking-email">{{ t('booking.email') }}</Label>
+                      <Input id="booking-email" v-model="form.customer_email" type="email" placeholder="vas@email.com" />
+                    </div>
 
-                  <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1.5">
-                      {{ t('booking.phone') }} <span class="text-gray-400 font-normal">{{ t('booking.orEmail') }}</span>
-                    </label>
-                    <input v-model="form.customer_phone" type="tel" placeholder="+381 60 123 4567"
-                      class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                  </div>
+                    <div class="grid gap-1.5">
+                      <Label for="booking-phone">
+                        {{ t('booking.phone') }} <span class="font-normal opacity-80">{{ t('booking.orEmail') }}</span>
+                      </Label>
+                      <Input id="booking-phone" v-model="form.customer_phone" type="tel" placeholder="+381 60 123 4567" />
+                    </div>
 
-                  <div>
-                    <label class="block text-xs font-medium text-gray-600 mb-1.5">
-                      {{ t('booking.note') }} <span class="text-gray-400 font-normal">({{ t('common.optional') }})</span>
-                    </label>
-                    <textarea v-model="form.note" rows="3" :placeholder="t('booking.notePlaceholder')"
-                      class="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
-                  </div>
+                    <div class="grid gap-1.5">
+                      <Label for="booking-note">
+                        {{ t('booking.note') }} <span class="font-normal opacity-80">({{ t('common.optional') }})</span>
+                      </Label>
+                      <Textarea id="booking-note" v-model="form.note" rows="3" :placeholder="t('booking.notePlaceholder')" class="resize-none field-sizing-fixed" />
+                    </div>
 
-                  <p v-if="error" class="text-red-500 text-sm">{{ error }}</p>
+                    <p v-if="error" class="text-destructive text-sm">{{ error }}</p>
 
-                  <button type="submit" :disabled="submitting"
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium rounded-lg py-3 text-sm transition-colors">
-                    {{ submitting ? t('booking.confirming') : t('booking.confirm') }}
-                  </button>
-                </form>
-              </div>
+                    <Button type="submit" size="lg" class="w-full" :disabled="submitting">
+                      {{ submitting ? t('booking.confirming') : t('booking.confirm') }}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
 
         <!-- Radnik ili usluga još nisu izabrani -->
-        <div v-else class="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-400">
-          <p class="text-2xl mb-2">{{ selectedWorkerId ? '✂️' : '👤' }}</p>
-          <p class="text-sm">{{ selectedWorkerId ? t('booking.servicePlaceholder') : t('booking.workerPlaceholder') }}</p>
-        </div>
+        <Card v-else>
+          <CardContent class="py-2 text-center text-muted-foreground">
+            <p class="text-2xl mb-2">{{ selectedWorkerId ? '✂️' : '👤' }}</p>
+            <p class="text-sm">{{ selectedWorkerId ? t('booking.servicePlaceholder') : t('booking.workerPlaceholder') }}</p>
+          </CardContent>
+        </Card>
 
       </div>
     </div>

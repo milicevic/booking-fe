@@ -4,8 +4,14 @@ import { useI18n } from 'vue-i18n'
 import { watchDebounced } from '@vueuse/core'
 import { tenantApi } from '@/api/tenant'
 import { apiErrorMessage } from '@/lib/apiError'
-import { tenantUrl } from '@/lib/domain'
+import { isPlatformHost, tenantUrl } from '@/lib/domain'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
+import GoogleButton from '@/components/auth/GoogleButton.vue'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { CheckIcon } from '@lucide/vue'
 
 const { t } = useI18n()
 
@@ -17,6 +23,9 @@ const form = reactive({
   email: '',
   password: '',
 })
+
+// Nova firma se registruje samo na glavnom domenu (backend odbija Google registraciju sa sajta firme)
+const showGoogle = isPlatformHost()
 
 const error = ref('')
 const loading = ref(false)
@@ -65,114 +74,117 @@ async function handleSubmit() {
 <template>
   <AuthLayout :title="t('auth.registerTitle')" :subtitle="t('auth.registerSubtitle')">
     <!-- Success -->
-    <div v-if="success" class="bg-white rounded-2xl border border-gray-100 p-8 text-center space-y-4">
-      <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-        <svg class="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-        </svg>
-      </div>
-      <h2 class="text-lg font-semibold text-gray-900">{{ t('auth.successTitle') }}</h2>
-      <p class="text-sm text-gray-500">{{ t('auth.successMsg') }}</p>
-      <div class="rounded-xl bg-gray-50 border border-gray-100 px-4 py-3">
-        <p class="text-xs text-gray-500 mb-1">{{ t('auth.yourAddress') }}</p>
-        <a
-          :href="tenantUrl(registeredSubdomain)"
-          data-testid="registered-address"
-          class="text-sm font-semibold text-indigo-600 hover:text-indigo-800 break-all"
-        >{{ tenantUrl(registeredSubdomain) }}</a>
-      </div>
-      <a
-        :href="tenantUrl(registeredSubdomain, '/admin/login')"
-        data-testid="go-to-login"
-        class="block w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2.5 rounded-xl transition-colors"
-      >
-        {{ t('auth.goToLogin') }}
-      </a>
-    </div>
+    <Card v-if="success">
+      <CardContent class="space-y-4 text-center">
+        <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+          <CheckIcon class="w-6 h-6 text-green-600" />
+        </div>
+        <h2 class="text-lg font-semibold">{{ t('auth.successTitle') }}</h2>
+        <p class="text-sm text-muted-foreground">{{ t('auth.successMsg') }}</p>
+        <div class="rounded-lg bg-muted/50 border px-4 py-3">
+          <p class="text-xs text-muted-foreground mb-1">{{ t('auth.yourAddress') }}</p>
+          <a
+            :href="tenantUrl(registeredSubdomain)"
+            data-testid="registered-address"
+            class="text-sm font-semibold text-primary hover:text-primary/80 break-all"
+          >{{ tenantUrl(registeredSubdomain) }}</a>
+        </div>
+        <Button as-child size="lg" class="w-full">
+          <a :href="tenantUrl(registeredSubdomain, '/admin/login')" data-testid="go-to-login">
+            {{ t('auth.goToLogin') }}
+          </a>
+        </Button>
+      </CardContent>
+    </Card>
 
     <!-- Form -->
-    <form v-else @submit.prevent="handleSubmit" class="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
+    <Card v-else>
+      <CardContent>
+        <form @submit.prevent="handleSubmit" class="space-y-5">
+          <div class="grid gap-1.5">
+            <Label for="register-app-name">{{ t('auth.businessName') }} *</Label>
+            <Input
+              id="register-app-name"
+              v-model="form.app_name"
+              type="text"
+              required
+              maxlength="255"
+              :placeholder="t('auth.businessNamePlaceholder')"
+            />
+            <p class="text-[11px] text-muted-foreground">{{ t('auth.businessNameHint') }}</p>
+            <div class="mt-0.5 rounded-lg bg-muted/50 border px-3 py-2.5" aria-live="polite">
+              <p class="text-[11px] text-muted-foreground mb-0.5">{{ t('auth.addressLabel') }}</p>
+              <p
+                class="text-sm font-mono break-all transition-opacity"
+                :class="subdomainLoading ? 'opacity-50' : ''"
+                data-testid="address-preview"
+              >
+                <span class="text-muted-foreground">https://</span><span
+                  :class="subdomain ? 'text-primary font-semibold' : 'text-muted-foreground/60'"
+                >{{ subdomain || t('auth.addressPlaceholder') }}</span><span class="text-muted-foreground">.{{ platformHost }}</span>
+              </p>
+            </div>
+          </div>
 
-      <div>
-        <label for="register-app-name" class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('auth.businessName') }} *</label>
-        <input
-          id="register-app-name"
-          v-model="form.app_name"
-          type="text"
-          required
-          maxlength="255"
-          :placeholder="t('auth.businessNamePlaceholder')"
-          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-        <p class="text-[11px] text-gray-400 mt-1.5">{{ t('auth.businessNameHint') }}</p>
-        <div class="mt-2 rounded-xl bg-gray-50 border border-gray-100 px-3 py-2.5" aria-live="polite">
-          <p class="text-[11px] text-gray-400 mb-0.5">{{ t('auth.addressLabel') }}</p>
-          <p
-            class="text-sm font-mono break-all transition-opacity"
-            :class="subdomainLoading ? 'opacity-50' : ''"
-            data-testid="address-preview"
-          >
-            <span class="text-gray-400">https://</span><span
-              :class="subdomain ? 'text-indigo-600 font-semibold' : 'text-gray-300'"
-            >{{ subdomain || t('auth.addressPlaceholder') }}</span><span class="text-gray-400">.{{ platformHost }}</span>
+          <div class="grid gap-1.5">
+            <Label for="register-name">{{ t('auth.yourName') }} *</Label>
+            <Input
+              id="register-name"
+              v-model="form.name"
+              type="text"
+              required
+              maxlength="255"
+              :placeholder="t('auth.yourNamePlaceholder')"
+            />
+          </div>
+
+          <div class="grid gap-1.5">
+            <Label for="register-email">{{ t('auth.email') }} *</Label>
+            <Input
+              id="register-email"
+              v-model="form.email"
+              type="email"
+              required
+              :placeholder="t('auth.emailPlaceholder')"
+            />
+          </div>
+
+          <div class="grid gap-1.5">
+            <Label for="register-password">{{ t('auth.password') }} *</Label>
+            <Input
+              id="register-password"
+              v-model="form.password"
+              type="password"
+              required
+              minlength="8"
+              :placeholder="t('auth.minPassword')"
+            />
+          </div>
+
+          <p class="text-xs text-muted-foreground">{{ t('auth.customizeLater') }}</p>
+
+          <p v-if="error" class="text-destructive text-xs">{{ error }}</p>
+
+          <Button type="submit" size="lg" class="w-full" :disabled="loading">
+            {{ loading ? t('auth.creating') : t('auth.createBtn') }}
+          </Button>
+
+          <GoogleButton
+            v-if="showGoogle"
+            intent="register"
+            :app-name="form.app_name.trim()"
+            :disabled="!form.app_name.trim()"
+            :hint="t('auth.google.registerHint')"
+          />
+
+          <p class="text-center text-xs text-muted-foreground">
+            {{ t('auth.alreadyHaveAccount') }}
+            <router-link :to="{ name: 'login' }" class="text-primary hover:text-primary/80">
+              {{ t('auth.loginBtn') }}
+            </router-link>
           </p>
-        </div>
-      </div>
-
-      <div>
-        <label for="register-name" class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('auth.yourName') }} *</label>
-        <input
-          id="register-name"
-          v-model="form.name"
-          type="text"
-          required
-          maxlength="255"
-          :placeholder="t('auth.yourNamePlaceholder')"
-          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-
-      <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('auth.email') }} *</label>
-        <input
-          v-model="form.email"
-          type="email"
-          required
-          :placeholder="t('auth.emailPlaceholder')"
-          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-
-      <div>
-        <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ t('auth.password') }} *</label>
-        <input
-          v-model="form.password"
-          type="password"
-          required
-          minlength="8"
-          :placeholder="t('auth.minPassword')"
-          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-
-      <p class="text-xs text-gray-400">{{ t('auth.customizeLater') }}</p>
-
-      <p v-if="error" class="text-red-500 text-xs">{{ error }}</p>
-
-      <button
-        type="submit"
-        :disabled="loading"
-        class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium py-3 rounded-xl transition-colors"
-      >
-        {{ loading ? t('auth.creating') : t('auth.createBtn') }}
-      </button>
-
-      <p class="text-center text-xs text-gray-400">
-        {{ t('auth.alreadyHaveAccount') }}
-        <router-link :to="{ name: 'login' }" class="text-indigo-600 hover:text-indigo-800">
-          {{ t('auth.loginBtn') }}
-        </router-link>
-      </p>
-    </form>
+        </form>
+      </CardContent>
+    </Card>
   </AuthLayout>
 </template>

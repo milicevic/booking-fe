@@ -4,7 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { i18n } from '@/i18n'
 import { createTestRouter } from '../helpers'
 
-vi.mock('@/api/booking', () => ({ bookingApi: { getByToken: vi.fn(), cancel: vi.fn() } }))
+vi.mock('@/api/booking', () => ({ bookingApi: { getByToken: vi.fn<(...args: unknown[]) => unknown>(), cancel: vi.fn<(...args: unknown[]) => unknown>() } }))
 
 import { bookingApi } from '@/api/booking'
 import ManageView from '@/views/booking/ManageView.vue'

@@ -1,4 +1,5 @@
 import api from './axios'
+import type { Client } from '@/stores/auth'
 
 export interface TenantConfig {
   app_name: string
@@ -29,13 +30,13 @@ export const tenantApi = {
   },
 
   register: (data: { name: string; email: string; password: string; app_name: string }) =>
-    api.post<{ token: string; tenant: { subdomain: string } }>('/api/register', data),
+    api.post<{ tenant: { subdomain: string } }>('/api/register', data),
 
   previewSubdomain: (appName: string) =>
     api.get<{ subdomain: string }>('/api/register/subdomain-preview', { params: { app_name: appName } }),
 
   acceptInvite: (token: string, data: { name: string; password: string }) =>
-    api.post<{ token: string; client: object }>(`/api/invite/${token}/accept`, data),
+    api.post<{ token: string; client: Client }>(`/api/invite/${token}/accept`, data),
 
   requestDeploy: (data: { subdomain?: string; custom_domain?: string }) =>
     api.post<{ message: string }>('/api/deploy/request', data),

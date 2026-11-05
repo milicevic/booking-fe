@@ -1,12 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
 
 vi.mock('@/api/axios', () => ({
-  default: { get: vi.fn(), post: vi.fn(), defaults: { headers: { common: {} as Record<string, string> } } },
+  default: { get: vi.fn<(...args: unknown[]) => unknown>(), post: vi.fn<(...args: unknown[]) => unknown>(), defaults: { headers: { common: {} as Record<string, string> } } },
 }))
 
 import api from '@/api/axios'
 import { useAuthStore } from '@/stores/auth'
+
+function httpError(status: number): AxiosError {
+  const response = { status, data: {}, headers: {}, statusText: '', config: { headers: new AxiosHeaders() } } as AxiosResponse
+  return new AxiosError('Request failed', undefined, undefined, undefined, response)
+}
 
 const mockedApi = api as unknown as {
   get: ReturnType<typeof vi.fn>
@@ -96,7 +102,7 @@ describe('auth store', () => {
 
   it('fetchMe clears an expired session on 401', async () => {
     localStorage.setItem('token', 'abc')
-    mockedApi.get.mockRejectedValue({ response: { status: 401 } })
+    mockedApi.get.mockRejectedValue(httpError(401))
     const auth = useAuthStore()
 
     await auth.fetchMe()
@@ -107,7 +113,7 @@ describe('auth store', () => {
 
   it('fetchMe keeps the session on non-401 errors', async () => {
     localStorage.setItem('token', 'abc')
-    mockedApi.get.mockRejectedValue({ response: { status: 500 } })
+    mockedApi.get.mockRejectedValue(httpError(500))
     const auth = useAuthStore()
 
     await auth.fetchMe()
@@ -124,5 +130,26 @@ describe('auth store', () => {
     expect(auth.client).toEqual(client)
     expect(localStorage.getItem('token')).toBe('invite-tok')
     expect(mockedApi.defaults.headers.common['Authorization']).toBe('Bearer invite-tok')
+  })
+
+  it('loginWithToken stores the token, sets the header and loads the user', async () => {
+    mockedApi.get.mockResolvedValue({ data: client })
+    const auth = useAuthStore()
+
+    await auth.loginWithToken('google-token')
+
+    expect(auth.token).toBe('google-token')
+    expect(localStorage.getItem('token')).toBe('google-token')
+    expect(mockedApi.defaults.headers.common['Authorization']).toBe('Bearer google-token')
+    expect(mockedApi.get).toHaveBeenCalledWith('/api/auth/me')
+    expect(auth.client).toEqual(client)
+  })
+
+  it('resendVerification asks the backend for a new confirmation email', async () => {
+    mockedApi.post.mockResolvedValue({ data: {} })
+
+    await useAuthStore().resendVerification('ana@salon.com')
+
+    expect(mockedApi.post).toHaveBeenCalledWith('/api/auth/email/resend', { email: 'ana@salon.com' })
   })
 })

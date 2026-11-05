@@ -4,6 +4,8 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { notificationsApi } from '@/api/notifications'
 import type { Notification } from '@/api/notifications'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
 const { t, locale } = useI18n()
 const router = useRouter()
@@ -53,8 +55,7 @@ function formatDate(dateStr: string) {
 }
 
 function notifLabel(n: Notification) {
-  const key = `notifications.${n.data.type}` as any
-  return t(key, { name: n.data.customer_name })
+  return t(`notifications.${n.data.type}`, { name: n.data.customer_name })
 }
 </script>
 
@@ -62,22 +63,19 @@ function notifLabel(n: Notification) {
   <div v-if="!loading && notifications.length > 0" class="mb-6">
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2">
-        <h2 class="text-sm font-medium text-gray-500">{{ t('notifications.title') }}</h2>
-        <span
-          v-if="unreadCount > 0"
-          class="text-[10px] font-semibold bg-indigo-600 text-white px-1.5 py-0.5 rounded-full leading-none"
-        >
-          {{ unreadCount }}
-        </span>
+        <h2 class="text-sm font-medium text-muted-foreground">{{ t('notifications.title') }}</h2>
+        <Badge v-if="unreadCount > 0" data-testid="unread-count">{{ unreadCount }}</Badge>
       </div>
-      <button
+      <Button
         v-if="unreadCount > 0"
-        @click="markAllRead"
+        variant="link"
+        size="xs"
+        class="px-0"
         :disabled="marking"
-        class="text-xs text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-50 transition-colors"
+        @click="markAllRead"
       >
         {{ t('notifications.markAllRead') }}
-      </button>
+      </Button>
     </div>
 
     <div class="space-y-2">
@@ -86,28 +84,28 @@ function notifLabel(n: Notification) {
         :key="n.id"
         @click="markRead(n)"
         :class="[
-          'bg-white rounded-xl border p-4 flex items-start gap-3 transition-colors',
+          'bg-card rounded-xl border p-4 flex items-start gap-3 transition-colors',
           n.read_at
-            ? 'border-gray-100 opacity-60 cursor-default'
-            : 'border-indigo-100 cursor-pointer hover:border-indigo-200',
+            ? 'opacity-60 cursor-default'
+            : 'border-primary/20 cursor-pointer hover:border-primary/40',
         ]"
       >
         <div
           :class="[
             'w-2 h-2 rounded-full mt-1.5 shrink-0',
-            n.read_at ? 'bg-gray-300' : 'bg-indigo-500',
+            n.read_at ? 'bg-muted-foreground/40' : 'bg-primary',
           ]"
         />
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-gray-900">
+          <p class="text-sm font-medium">
             {{ notifLabel(n) }}
           </p>
-          <p class="text-xs text-gray-400 mt-0.5">
+          <p class="text-xs text-muted-foreground mt-0.5">
             {{ formatDate(n.data.date) }} {{ t('notifications.at') }} {{ n.data.start_time.slice(0, 5) }}
             · {{ t('notifications.with') }} {{ n.data.worker_name }}<template v-if="n.data.service_name"> · {{ n.data.service_name }}</template>
           </p>
         </div>
-        <span class="text-[10px] text-gray-300 shrink-0 mt-0.5">
+        <span class="text-[10px] text-muted-foreground/60 shrink-0 mt-0.5">
           {{ new Date(n.created_at).toLocaleDateString(locale === 'sr' ? 'sr-Latn-RS' : 'en-US', { day: 'numeric', month: 'short' }) }}
         </span>
       </div>

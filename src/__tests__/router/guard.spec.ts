@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
 vi.mock('@/api/axios', () => ({
-  default: { get: vi.fn(), post: vi.fn(), defaults: { headers: { common: {} } } },
+  default: { get: vi.fn<(...args: unknown[]) => unknown>(), post: vi.fn<(...args: unknown[]) => unknown>(), defaults: { headers: { common: {} } } },
 }))
 
 import router from '@/router'

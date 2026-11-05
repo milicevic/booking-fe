@@ -7,6 +7,10 @@ import api from '@/api/axios'
 import type { Booking } from '@/api/booking'
 import { useTenantStore } from '@/stores/tenant'
 import TenantLogo from '@/components/TenantLogo.vue'
+import { CheckIcon } from '@lucide/vue'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
 import { apiErrorMessage } from '@/lib/apiError'
 import { formatPrice } from '@/lib/price'
 
@@ -85,81 +89,79 @@ async function subscribePush() {
 
 <template>
   <div class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-md p-8 text-center">
+    <Card class="w-full max-w-md">
+      <CardContent class="px-8 py-2 text-center">
 
-      <div class="flex items-center justify-center gap-2 mb-6">
-        <TenantLogo :src="tenant.logoUrl" :size="28" />
-        <span class="font-semibold text-gray-800">{{ tenant.appName }}</span>
-      </div>
-
-      <div v-if="loading" class="text-gray-400">{{ t('common.loading') }}</div>
-
-      <template v-else-if="booking">
-        <div class="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg class="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-          </svg>
+        <div class="flex items-center justify-center gap-2 mb-6">
+          <TenantLogo :src="tenant.logoUrl" :size="28" />
+          <span class="font-semibold">{{ tenant.appName }}</span>
         </div>
 
-        <h1 class="text-xl font-semibold text-gray-900 mb-1">{{ t('confirmation.title') }}</h1>
-        <p class="text-gray-500 text-sm mb-6">
-          {{ t('confirmation.sentTo', { contact: booking.customer_email ? 'email' : t('booking.phone').toLowerCase() }) }}
-        </p>
+        <div v-if="loading" class="text-muted-foreground">{{ t('common.loading') }}</div>
 
-        <div class="bg-gray-50 rounded-xl p-4 text-left space-y-2 mb-6">
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">{{ t('confirmation.worker') }}</span>
-            <span class="font-medium text-gray-900">{{ booking.slot.worker.name }}</span>
+        <template v-else-if="booking">
+          <div class="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckIcon class="w-7 h-7 text-green-600" />
           </div>
-          <div v-if="booking.service" class="flex justify-between gap-4 text-sm">
-            <span class="text-gray-500">{{ t('confirmation.service') }}</span>
-            <span class="font-medium text-gray-900 text-right">
-              {{ booking.service.name }}<template v-if="booking.service.price"> · {{ formatPrice(booking.service.price, locale, tenant.config?.currency) }}</template>
-            </span>
+
+          <h1 class="text-xl font-semibold mb-1">{{ t('confirmation.title') }}</h1>
+          <p class="text-muted-foreground text-sm mb-6">
+            {{ t('confirmation.sentTo', { contact: booking.customer_email ? 'email' : t('booking.phone').toLowerCase() }) }}
+          </p>
+
+          <div class="bg-muted/60 rounded-xl p-4 text-left space-y-2 mb-6">
+            <div class="flex justify-between text-sm">
+              <span class="text-muted-foreground">{{ t('confirmation.worker') }}</span>
+              <span class="font-medium">{{ booking.slot.worker.name }}</span>
+            </div>
+            <div v-if="booking.service" class="flex justify-between gap-4 text-sm">
+              <span class="text-muted-foreground">{{ t('confirmation.service') }}</span>
+              <span class="font-medium text-right">
+                {{ booking.service.name }}<template v-if="booking.service.price"> · {{ formatPrice(booking.service.price, locale, tenant.config?.currency) }}</template>
+              </span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-muted-foreground">{{ t('confirmation.date') }}</span>
+              <span class="font-medium capitalize">{{ formatDate(booking.slot.date) }}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-muted-foreground">{{ t('confirmation.time') }}</span>
+              <span class="font-medium">
+                {{ booking.start_time.slice(0, 5) }} — {{ booking.end_time.slice(0, 5) }}
+              </span>
+            </div>
           </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">{{ t('confirmation.date') }}</span>
-            <span class="font-medium text-gray-900 capitalize">{{ formatDate(booking.slot.date) }}</span>
+
+          <!-- Push subscription -->
+          <div v-if="pushSupported && !pushSubscribed" class="mt-6">
+            <Separator class="mb-5" />
+            <p class="text-sm font-medium mb-1">{{ t('confirmation.pushTitle') }}</p>
+            <p class="text-xs text-muted-foreground mb-3">{{ t('confirmation.pushDesc') }}</p>
+            <Button class="w-full" :disabled="pushSubscribing" @click="subscribePush">
+              {{ pushSubscribing ? t('confirmation.pushSubscribing') : t('confirmation.pushBtn') }}
+            </Button>
+            <p v-if="pushError" class="text-destructive text-xs mt-2">{{ pushError }}</p>
           </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">{{ t('confirmation.time') }}</span>
-            <span class="font-medium text-gray-900">
-              {{ booking.start_time.slice(0, 5) }} — {{ booking.end_time.slice(0, 5) }}
-            </span>
+
+          <div v-else-if="pushSubscribed" class="mt-6 text-center">
+            <Separator class="mb-5" />
+            <p class="text-sm text-green-600 font-medium">🔔 {{ t('confirmation.pushSubscribed') }}</p>
           </div>
-        </div>
 
-        <!-- Push subscription -->
-        <div v-if="pushSupported && !pushSubscribed" class="mt-6 border-t border-gray-100 pt-5">
-          <p class="text-sm font-medium text-gray-700 mb-1">{{ t('confirmation.pushTitle') }}</p>
-          <p class="text-xs text-gray-400 mb-3">{{ t('confirmation.pushDesc') }}</p>
-          <button
-            @click="subscribePush"
-            :disabled="pushSubscribing"
-            class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
-          >
-            {{ pushSubscribing ? t('confirmation.pushSubscribing') : t('confirmation.pushBtn') }}
-          </button>
-          <p v-if="pushError" class="text-red-500 text-xs mt-2">{{ pushError }}</p>
-        </div>
+          <div v-if="!pushSupported" class="mt-4 text-xs text-muted-foreground text-center">
+            {{ t('confirmation.pushUnsupported') }}
+          </div>
 
-        <div v-else-if="pushSubscribed" class="mt-6 border-t border-gray-100 pt-5 text-center">
-          <p class="text-sm text-green-600 font-medium">🔔 {{ t('confirmation.pushSubscribed') }}</p>
-        </div>
-
-        <div v-if="!pushSupported" class="mt-4 text-xs text-gray-400 text-center">
-          {{ t('confirmation.pushUnsupported') }}
-        </div>
-
-        <div class="mt-5">
-          <router-link
-            :to="{ name: 'manage', params: { token: booking.token } }"
-            class="text-sm text-indigo-600 hover:text-indigo-700"
-          >
-            {{ t('confirmation.manageLink') }}
-          </router-link>
-        </div>
-      </template>
-    </div>
+          <div class="mt-5">
+            <router-link
+              :to="{ name: 'manage', params: { token: booking.token } }"
+              class="text-sm text-primary hover:text-primary/80"
+            >
+              {{ t('confirmation.manageLink') }}
+            </router-link>
+          </div>
+        </template>
+      </CardContent>
+    </Card>
   </div>
 </template>

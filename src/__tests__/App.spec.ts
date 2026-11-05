@@ -8,7 +8,7 @@ import { useTenantStore } from '@/stores/tenant'
 import { createTestRouter } from './helpers'
 
 vi.mock('@/api/axios', () => ({
-  default: { get: vi.fn(), post: vi.fn(), defaults: { headers: { common: {} } } },
+  default: { get: vi.fn<(...args: unknown[]) => unknown>(), post: vi.fn<(...args: unknown[]) => unknown>(), defaults: { headers: { common: {} } } },
 }))
 
 describe('App', () => {

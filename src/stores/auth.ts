@@ -1,13 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '@/api/axios'
+import { isAxiosError } from 'axios'
 
 interface ClientProfile {
   id: number
   auto_confirm_bookings: boolean
 }
 
-interface Client {
+export interface Client {
   id: number
   name: string
   email: string
@@ -50,8 +51,8 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const { data } = await api.get('/api/auth/me')
       client.value = data
-    } catch (e: any) {
-      if (e.response?.status === 401) {
+    } catch (e) {
+      if (isAxiosError(e) && e.response?.status === 401) {
         token.value = null
         client.value = null
         localStorage.removeItem('token')
@@ -67,5 +68,18 @@ export const useAuthStore = defineStore('auth', () => {
     api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`
   }
 
-  return { client, token, isLoggedIn, login, logout, fetchMe, setSession }
+  // Ponovo šalje mejl za potvrdu email adrese (backend odgovara isto i kad nalog ne postoji)
+  async function resendVerification(email: string) {
+    await api.post('/api/auth/email/resend', { email })
+  }
+
+  // Prijava tokenom koji je backend vratio posle Google prijave (korisnika učitavamo posebno)
+  async function loginWithToken(newToken: string) {
+    token.value = newToken
+    localStorage.setItem('token', newToken)
+    api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`
+    await fetchMe()
+  }
+
+  return { client, token, isLoggedIn, login, logout, fetchMe, setSession, loginWithToken, resendVerification }
 })

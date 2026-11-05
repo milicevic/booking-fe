@@ -7,6 +7,9 @@ import { useConfirm } from '@/composables/useConfirm'
 import type { Booking } from '@/api/booking'
 import { useTenantStore } from '@/stores/tenant'
 import TenantLogo from '@/components/TenantLogo.vue'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { apiErrorMessage } from '@/lib/apiError'
 import { formatPrice } from '@/lib/price'
 
@@ -76,81 +79,77 @@ async function handleCancel() {
 
 <template>
   <div class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-md p-8">
+    <Card class="w-full max-w-md">
+      <CardContent class="px-8 py-2">
 
-      <div class="flex items-center gap-2 mb-6">
-        <TenantLogo :src="tenant.logoUrl" :size="28" />
-        <span class="font-semibold text-gray-800">{{ tenant.appName }}</span>
-      </div>
+        <div class="flex items-center gap-2 mb-6">
+          <TenantLogo :src="tenant.logoUrl" :size="28" />
+          <span class="font-semibold">{{ tenant.appName }}</span>
+        </div>
 
-      <div v-if="loading" class="text-center text-gray-400">{{ t('common.loading') }}</div>
+        <div v-if="loading" class="text-center text-muted-foreground">{{ t('common.loading') }}</div>
 
-      <div v-else-if="error" class="text-center text-red-500">{{ error }}</div>
+        <div v-else-if="error" class="text-center text-destructive">{{ error }}</div>
 
-      <template v-else-if="booking">
-        <div class="flex items-center justify-between mb-6">
-          <h1 class="text-xl font-semibold text-gray-900">{{ t('manage.title') }}</h1>
-          <span
-            :class="bookingStatusClass(booking.status)"
-            class="text-xs font-medium px-3 py-1 rounded-full"
+        <template v-else-if="booking">
+          <div class="flex items-center justify-between mb-6">
+            <h1 class="text-xl font-semibold">{{ t('manage.title') }}</h1>
+            <Badge :class="bookingStatusClass(booking.status)">
+              {{ bookingStatusLabel(booking.status) }}
+            </Badge>
+          </div>
+
+          <div class="bg-muted/60 rounded-xl p-4 space-y-3 mb-6">
+            <div class="flex justify-between text-sm">
+              <span class="text-muted-foreground">{{ t('manage.name') }}</span>
+              <span class="font-medium">{{ booking.customer_name }}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-muted-foreground">{{ t('manage.worker') }}</span>
+              <span class="font-medium">{{ booking.slot.worker.name }}</span>
+            </div>
+            <div v-if="booking.service" class="flex justify-between gap-4 text-sm">
+              <span class="text-muted-foreground">{{ t('manage.service') }}</span>
+              <span class="font-medium text-right">
+                {{ booking.service.name }}<template v-if="booking.service.price"> · {{ formatPrice(booking.service.price, locale, tenant.config?.currency) }}</template>
+              </span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-muted-foreground">{{ t('manage.date') }}</span>
+              <span class="font-medium capitalize">{{ formatDate(booking.slot.date) }}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-muted-foreground">{{ t('manage.time') }}</span>
+              <span class="font-medium">
+                {{ booking.start_time.slice(0, 5) }} — {{ booking.end_time.slice(0, 5) }}
+              </span>
+            </div>
+          </div>
+
+          <div v-if="booking.status === 'cancelled'" class="text-center text-sm text-muted-foreground mb-4">
+            {{ t('manage.cancelled') }}
+          </div>
+          <div v-else-if="booking.status === 'rejected'" class="text-center text-sm text-muted-foreground mb-4">
+            {{ t('manage.rejected') }}
+          </div>
+
+          <div v-if="error" class="text-destructive text-sm text-center mb-4">{{ error }}</div>
+
+          <Button
+            v-if="isActive"
+            variant="outline"
+            class="w-full border-destructive/30 text-destructive shadow-none hover:bg-destructive/5 hover:text-destructive"
+            :disabled="cancelling"
+            @click="handleCancel"
           >
-            {{ bookingStatusLabel(booking.status) }}
-          </span>
-        </div>
+            {{ cancelling ? t('manage.cancelling') : t('manage.cancelBtn') }}
+          </Button>
 
-        <div class="bg-gray-50 rounded-xl p-4 space-y-3 mb-6">
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">{{ t('manage.name') }}</span>
-            <span class="font-medium text-gray-900">{{ booking.customer_name }}</span>
-          </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">{{ t('manage.worker') }}</span>
-            <span class="font-medium text-gray-900">{{ booking.slot.worker.name }}</span>
-          </div>
-          <div v-if="booking.service" class="flex justify-between gap-4 text-sm">
-            <span class="text-gray-500">{{ t('manage.service') }}</span>
-            <span class="font-medium text-gray-900 text-right">
-              {{ booking.service.name }}<template v-if="booking.service.price"> · {{ formatPrice(booking.service.price, locale, tenant.config?.currency) }}</template>
-            </span>
-          </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">{{ t('manage.date') }}</span>
-            <span class="font-medium text-gray-900 capitalize">{{ formatDate(booking.slot.date) }}</span>
-          </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">{{ t('manage.time') }}</span>
-            <span class="font-medium text-gray-900">
-              {{ booking.start_time.slice(0, 5) }} — {{ booking.end_time.slice(0, 5) }}
-            </span>
-          </div>
-        </div>
-
-        <div v-if="booking.status === 'cancelled'" class="text-center text-sm text-gray-400 mb-4">
-          {{ t('manage.cancelled') }}
-        </div>
-        <div v-else-if="booking.status === 'rejected'" class="text-center text-sm text-gray-400 mb-4">
-          {{ t('manage.rejected') }}
-        </div>
-
-        <div v-if="error" class="text-red-500 text-sm text-center mb-4">{{ error }}</div>
-
-        <button
-          v-if="isActive"
-          @click="handleCancel"
-          :disabled="cancelling"
-          class="w-full border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-50 text-sm font-medium py-2.5 rounded-xl transition-colors"
-        >
-          {{ cancelling ? t('manage.cancelling') : t('manage.cancelBtn') }}
-        </button>
-
-        <button
-          v-else
-          @click="router.push({ name: 'booking' })"
-          class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2.5 rounded-xl transition-colors"
-        >
-          {{ t('manage.backHome') }}
-        </button>
-      </template>
-    </div>
+          <Button v-else class="w-full" @click="router.push({ name: 'booking' })">
+            {{ t('manage.backHome') }}
+          </Button>
+        </template>
+      </CardContent>
+    </Card>
   </div>
 </template>
