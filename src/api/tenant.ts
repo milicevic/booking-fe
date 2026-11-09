@@ -1,6 +1,9 @@
 import api from './axios'
 import type { Client } from '@/stores/auth'
 
+/** Koje kontakt podatke kupac mora da ostavi pri zakazivanju (podešava vlasnik firme) */
+export type CustomerContact = 'email_or_phone' | 'both' | 'phone' | 'email'
+
 export interface TenantConfig {
   app_name: string
   logo_url: string | null
@@ -10,6 +13,7 @@ export interface TenantConfig {
   subdomain: string
   currency: string
   locale: 'sr' | 'en'
+  customer_contact: CustomerContact
   subscription_status: 'trialing' | 'active' | 'expired' | 'canceled' | 'pending_deploy'
   trial_ends_at: string | null
   subscription_ends_at: string | null
@@ -29,7 +33,7 @@ export const tenantApi = {
     })
   },
 
-  register: (data: { name: string; email: string; password: string; app_name: string }) =>
+  register: (data: { name: string; email: string; password: string; app_name: string; captcha_token?: string }) =>
     api.post<{ tenant: { subdomain: string } }>('/api/register', data),
 
   previewSubdomain: (appName: string) =>

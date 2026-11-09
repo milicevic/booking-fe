@@ -62,7 +62,14 @@ async function resendVerification() {
       <CardContent>
         <form @submit.prevent="handleLogin" class="space-y-5">
           <p
-            v-if="verifiedStatus === '1'"
+            v-if="route.query.reset === '1'"
+            class="rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700"
+            data-testid="password-reset-done"
+          >
+            {{ t('auth.reset.done') }}
+          </p>
+          <p
+            v-else-if="verifiedStatus === '1'"
             class="rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700"
             data-testid="email-verified"
           >
@@ -89,7 +96,12 @@ async function resendVerification() {
           </div>
 
           <div class="grid gap-1.5">
-            <Label for="login-password">{{ t('auth.password') }}</Label>
+            <div class="flex items-center justify-between">
+              <Label for="login-password">{{ t('auth.password') }}</Label>
+              <router-link :to="{ name: 'forgot-password' }" class="text-xs text-primary hover:text-primary/80" data-testid="forgot-password-link">
+                {{ t('auth.forgot.link') }}
+              </router-link>
+            </div>
             <Input
               id="login-password"
               v-model="password"

@@ -13,6 +13,8 @@ export function createTestRouter() {
       { path: '/register', name: 'register', component: Stub },
       { path: '/auth/callback', name: 'google-callback', component: Stub },
       { path: '/admin/login', name: 'login', component: Stub },
+      { path: '/admin/forgot-password', name: 'forgot-password', component: Stub },
+      { path: '/admin/reset-password', name: 'reset-password', component: Stub },
       { path: '/admin', name: 'dashboard', component: Stub },
     ],
   })

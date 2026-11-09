@@ -1,3 +1,4 @@
+import { isAxiosError } from 'axios'
 import { bookingApi } from '@/api/booking'
 import type { Booking } from '@/api/booking'
 
@@ -32,26 +33,29 @@ function isUpcoming(booking: Booking): boolean {
   return ['pending', 'confirmed'].includes(booking.status) && end.getTime() > Date.now()
 }
 
-/** Aktivne predstojeće rezervacije; prošle, otkazane i nepostojeće se brišu iz pregledača. */
+/**
+ * Aktivne predstojeće rezervacije. Iz pregledača se brišu samo prošle, otkazane i one koje
+ * server ne prepoznaje (404); kod greške mreže ili servera token ostaje za sledeći put.
+ */
 export async function loadMyBookings(): Promise<Booking[]> {
   const tokens = readTokens()
   if (tokens.length === 0) return []
 
   const results = await Promise.all(
-    tokens.map(async (token) => {
+    tokens.map(async (token): Promise<{ token: string; booking: Booking | null; keep: boolean }> => {
       try {
         const { data } = await bookingApi.getByToken(token)
-        return data
-      } catch {
-        return null
+        return { token, booking: data, keep: isUpcoming(data) }
+      } catch (e) {
+        return { token, booking: null, keep: !(isAxiosError(e) && e.response?.status === 404) }
       }
     }),
   )
 
-  const active = results.filter((booking): booking is Booking => !!booking && isUpcoming(booking))
-  writeTokens(active.map((booking) => booking.token))
+  writeTokens(results.filter((result) => result.keep).map((result) => result.token))
 
-  return active.sort((a, b) =>
-    a.slot.date.localeCompare(b.slot.date) || a.start_time.localeCompare(b.start_time),
-  )
+  return results
+    .filter((result): result is { token: string; booking: Booking; keep: boolean } => !!result.booking && result.keep)
+    .map((result) => result.booking)
+    .sort((a, b) => a.slot.date.localeCompare(b.slot.date) || a.start_time.localeCompare(b.start_time))
 }

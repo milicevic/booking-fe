@@ -111,4 +111,11 @@ describe('LoginView', () => {
     const { wrapper } = await mountLogin('/admin/login?verified=invalid')
     expect(wrapper.find('[data-testid="email-verify-invalid"]').exists()).toBe(true)
   })
+
+  it('links to the forgotten password page and confirms a changed password', async () => {
+    const { wrapper } = await mountLogin('/admin/login?reset=1')
+
+    expect(wrapper.find('[data-testid="forgot-password-link"]').attributes('href')).toBe('/admin/forgot-password')
+    expect(wrapper.find('[data-testid="password-reset-done"]').exists()).toBe(true)
+  })
 })

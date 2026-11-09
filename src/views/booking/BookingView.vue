@@ -5,10 +5,14 @@ import { useI18n } from 'vue-i18n'
 import { slotsApi } from '@/api/slots'
 import { bookingApi } from '@/api/booking'
 import type { BookableTime, Slot, Service } from '@/api/booking'
+import type { CustomerContact } from '@/api/tenant'
 import { useTenantStore } from '@/stores/tenant'
 import { useToast } from '@/composables/useToast'
 import TenantLogo from '@/components/TenantLogo.vue'
 import MyBookings from '@/components/booking/MyBookings.vue'
+import WorkerAvatar from '@/components/WorkerAvatar.vue'
+import TurnstileWidget from '@/components/TurnstileWidget.vue'
+import { captchaEnabled } from '@/lib/captcha'
 import { ChevronLeftIcon, ChevronRightIcon } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -18,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { rememberBooking } from '@/lib/myBookings'
 import { apiErrorMessage } from '@/lib/apiError'
 import { formatPrice } from '@/lib/price'
+import { availableDates, timeChoicesForDate, type TimeChoice } from '@/lib/bookingTimes'
 
 const { t, locale } = useI18n()
 const router = useRouter()
@@ -30,10 +35,14 @@ const loading = ref(true)
 const submitting = ref(false)
 const error = ref('')
 
-// ─── Steps: worker → service → date → slot → form ────────────────────────────
-const selectedWorkerId = ref<number | null>(null)
+// ─── Izbor: usluga i/ili radnik → datum → vreme → forma ──────────────────────
+// Cenovnik i radnici su uvek prikazani; kupac bira uslugu, radnika ili oba, a kalendar
+// prikazuje slobodne termine prema onome što je izabrano.
 const selectedService = ref<Service | null>(null)
+const selectedWorkerId = ref<number | null>(null)
 const selectedDate = ref<string | null>(null)
+// Izabrano vreme (sa radnicima slobodnim u to vreme) i, kad je i radnik poznat, konkretan termin
+const selectedTime = ref<TimeChoice | null>(null)
 const selectedSlot = ref<BookableTime | null>(null)
 
 const form = ref({
@@ -43,64 +52,112 @@ const form = ref({
   note: '',
 })
 
-// ─── Workers derived from slots ───────────────────────────────────────────────
+// ─── Radnici i usluge iz slobodnih termina ────────────────────────────────────
+type WorkerSummary = { id: number; name: string; photo_url: string | null; bio: string | null; serviceIds: number[] }
+
 const workers = computed(() => {
-  const map = new Map<number, { id: number; name: string }>()
+  const map = new Map<number, WorkerSummary>()
   for (const s of allSlots.value) {
-    if (!map.has(s.worker.id)) map.set(s.worker.id, s.worker)
+    if (!map.has(s.worker.id)) {
+      map.set(s.worker.id, {
+        id: s.worker.id,
+        name: s.worker.name,
+        photo_url: s.worker.photo_url ?? null,
+        bio: s.worker.bio ?? null,
+        serviceIds: (s.worker.services ?? []).map((svc) => svc.id),
+      })
+    }
   }
-  return [...map.values()]
+  // Zakazuje se uvek usluga kod radnika, pa se nude samo radnici koji rade bar jednu uslugu
+  return [...map.values()].filter((w) => w.serviceIds.length > 0)
 })
 
-function pickWorker(id: number) {
-  selectedWorkerId.value = id
-  selectedService.value = null
-  selectedDate.value = null
-  selectedSlot.value = null
-  error.value = ''
-}
-
-// ─── Services for selected worker ─────────────────────────────────────────────
-const workerServices = computed(() => {
-  if (!selectedWorkerId.value) return []
-  const map = new Map<number, Service>()
+// Cenovnik: usluge koje radi bar jedan radnik sa slobodnim terminima
+const services = computed(() => {
+  const map = new Map<number, { service: Service; workers: WorkerSummary[] }>()
   for (const s of allSlots.value) {
-    if (s.worker.id === selectedWorkerId.value) {
-      for (const svc of s.worker.services ?? []) {
-        if (!map.has(svc.id)) map.set(svc.id, svc)
+    for (const svc of s.worker.services ?? []) {
+      const entry = map.get(svc.id) ?? { service: svc, workers: [] }
+      if (!entry.workers.some((w) => w.id === s.worker.id)) {
+        const worker = workers.value.find((w) => w.id === s.worker.id)
+        if (worker) entry.workers.push(worker)
       }
+      map.set(svc.id, entry)
     }
   }
   return [...map.values()]
 })
 
+const selectedWorker = computed(() => workers.value.find((w) => w.id === selectedWorkerId.value) ?? null)
+
+function workerById(id: number | null | undefined) {
+  return workers.value.find((w) => w.id === id)
+}
+
+function workerName(id: number | null | undefined) {
+  return workerById(id)?.name ?? ''
+}
+
+// Usluga i radnik moraju da se slažu: usluge koje izabrani radnik ne radi (i obrnuto) nisu dostupne
+function serviceAvailable(serviceId: number) {
+  return !selectedWorker.value || selectedWorker.value.serviceIds.includes(serviceId)
+}
+
+function workerAvailable(worker: WorkerSummary) {
+  return !selectedService.value || worker.serviceIds.includes(selectedService.value.id)
+}
+
+// Ponovni klik na izabranu uslugu ili radnika poništava izbor, osim kad je to jedina opcija
+// (tada je izabrana automatski i ostaje izabrana)
 function pickService(service: Service) {
-  selectedService.value = service
-  selectedDate.value = null
+  const deselect = selectedService.value?.id === service.id
+  if (deselect && services.value.length === 1) return
+  selectedService.value = deselect ? null : service
+  selectedTime.value = null
   selectedSlot.value = null
   error.value = ''
 }
 
-// ─── Vremena za izabranog radnika i uslugu ────────────────────────────────────
-// Backend računa vremena prema trajanju usluge, uključujući rupe posle kraćih rezervacija
+function pickWorker(id: number) {
+  const deselect = selectedWorkerId.value === id
+  if (deselect && workers.value.length === 1) return
+  selectedWorkerId.value = deselect ? null : id
+  selectedTime.value = null
+  selectedSlot.value = null
+  error.value = ''
+}
+
+// ─── Vremena prema izboru ─────────────────────────────────────────────────────
+// Kupac mora da izabere radnika i uslugu koju on radi; tek tada se nude termini iz kalendara
+// tog radnika. Izuzetak je radnik bez usluga, kod koga se bira ceo termin.
+// Backend računa vremena prema trajanju usluge, uključujući rupe posle kraćih rezervacija.
 const times = ref<BookableTime[]>([])
 const timesLoading = ref(false)
-const readyForTimes = computed(() =>
-  !!selectedWorkerId.value && (workerServices.value.length === 0 || !!selectedService.value)
+// Termini se prikazuju čim je izabrana usluga: kod izabranog radnika, ili kod svih radnika koji
+// je rade. Radnik se tada bira posle vremena, među onima koji su u to vreme slobodni.
+const readyForTimes = computed(() => !!selectedService.value)
+
+// Šta kupac još treba da izabere, dok kalendar nije spreman
+const missingChoice = computed(() =>
+  selectedWorker.value ? t('booking.pickServiceForWorker') : t('booking.pickServiceFirst')
 )
 
 async function loadTimes() {
-  if (!readyForTimes.value || !selectedWorkerId.value) {
+  const workerId = selectedWorkerId.value
+  const serviceId = selectedService.value?.id
+  if (!serviceId) {
     times.value = []
+    selectedDate.value = null
     return
   }
   timesLoading.value = true
   try {
-    const { data } = await slotsApi.getTimes({
-      worker_id: selectedWorkerId.value,
-      ...(selectedService.value ? { service_id: selectedService.value.id } : {}),
-    })
+    const { data } = await slotsApi.getTimes({ service_id: serviceId, ...(workerId ? { worker_id: workerId } : {}) })
     times.value = data
+    // Izabrani dan ostaje samo ako i dalje ima slobodnih vremena (npr. posle promene radnika)
+    if (selectedDate.value && !data.some((time) => time.date.slice(0, 10) === selectedDate.value)) {
+      selectedDate.value = null
+    }
   } catch (e) {
     times.value = []
     error.value = apiErrorMessage(e, t('booking.loadError'))
@@ -109,7 +166,7 @@ async function loadTimes() {
   }
 }
 
-watch([selectedWorkerId, selectedService], loadTimes)
+watch([selectedService, selectedWorkerId], loadTimes)
 
 // ─── Calendar ─────────────────────────────────────────────────────────────────
 const calendarBase = ref(new Date())
@@ -133,11 +190,7 @@ const calDays = computed(() => [
 const now = new Date()
 const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
-const availableDates = computed(() => {
-  const set = new Set<string>()
-  for (const time of times.value) set.add(time.date.slice(0, 10))
-  return set
-})
+const freeDates = computed(() => availableDates(times.value))
 
 const calendarDays = computed(() => {
   const year = calendarBase.value.getFullYear()
@@ -156,20 +209,14 @@ const calendarDays = computed(() => {
     days.push({
       date: dateStr,
       day: d,
-      available: availableDates.value.has(dateStr),
+      available: freeDates.value.has(dateStr),
       past: dateStr < today,
     })
   }
   return days
 })
 
-const timesForDate = computed(() =>
-  selectedDate.value
-    ? times.value
-        .filter(time => time.date.slice(0, 10) === selectedDate.value)
-        .sort((a, b) => a.start_time.localeCompare(b.start_time))
-    : []
-)
+const timesForDate = computed(() => (selectedDate.value ? timeChoicesForDate(times.value, selectedDate.value) : []))
 
 function prevMonth() {
   const d = new Date(calendarBase.value)
@@ -186,13 +233,27 @@ function nextMonth() {
 function pickDate(day: { date: string; available: boolean; past: boolean }) {
   if (day.past || !day.available) return
   selectedDate.value = day.date
+  selectedTime.value = null
   selectedSlot.value = null
   error.value = ''
 }
 
-function pickSlot(time: BookableTime) {
-  selectedSlot.value = time
+// Kad je u izabrano vreme slobodan samo jedan radnik (ili je radnik već izabran), termin je odmah poznat;
+// inače kupac bira jednog od slobodnih radnika
+function pickTime(choice: TimeChoice) {
+  selectedTime.value = choice
+  selectedSlot.value = choice.options.length === 1 ? choice.options[0]! : null
   error.value = ''
+}
+
+function pickTimeWorker(option: BookableTime) {
+  selectedSlot.value = option
+  error.value = ''
+}
+
+function resetTime() {
+  selectedTime.value = null
+  selectedSlot.value = null
 }
 
 function formatDate(date: string) {
@@ -206,6 +267,9 @@ onMounted(async () => {
   try {
     const { data } = await slotsApi.getAvailable()
     allSlots.value = data
+    // Kad postoji samo jedna usluga ili samo jedan radnik, kupac nema šta da bira
+    if (services.value.length === 1) selectedService.value = services.value[0]!.service
+    if (workers.value.length === 1) selectedWorkerId.value = workers.value[0]!.id
   } catch (e) {
     error.value = apiErrorMessage(e, t('booking.loadError'))
   } finally {
@@ -213,11 +277,32 @@ onMounted(async () => {
   }
 })
 
+// ─── Kontakt kupca ────────────────────────────────────────────────────────────
+// Pravilo bira vlasnik firme (Pregled u adminu); backend proverava isto pri rezervaciji
+const contactRule = computed<CustomerContact>(() => tenant.config?.customer_contact ?? 'email_or_phone')
+const emailRequired = computed(() => contactRule.value === 'both' || contactRule.value === 'email')
+const phoneRequired = computed(() => contactRule.value === 'both' || contactRule.value === 'phone')
+
+function contactViolation(email: string, phone: string): string | null {
+  const hasEmail = !!email.trim()
+  const hasPhone = !!phone.trim()
+  if (contactRule.value === 'email_or_phone') return hasEmail || hasPhone ? null : t('booking.emailOrPhone')
+  if (emailRequired.value && phoneRequired.value && !(hasEmail && hasPhone)) return t('booking.emailAndPhone')
+  if (emailRequired.value && !hasEmail) return t('booking.emailRequired')
+  if (phoneRequired.value && !hasPhone) return t('booking.phoneRequired')
+  return null
+}
+
+// Zaštita od botova (prazno dok captcha nije uključena)
+const captchaToken = ref<string | null>(null)
+const captcha = ref<InstanceType<typeof TurnstileWidget> | null>(null)
+
 async function handleSubmit() {
-  if (!selectedSlot.value) return
+  if (!selectedSlot.value || !selectedService.value) return
   if (!form.value.customer_name) return (error.value = t('booking.nameRequired'))
-  if (!form.value.customer_email && !form.value.customer_phone)
-    return (error.value = t('booking.emailOrPhone'))
+  const contactError = contactViolation(form.value.customer_email, form.value.customer_phone)
+  if (contactError) return (error.value = contactError)
+  if (captchaEnabled() && !captchaToken.value) return (error.value = t('booking.captchaRequired'))
 
   submitting.value = true
   error.value = ''
@@ -227,18 +312,21 @@ async function handleSubmit() {
       slot_id: selectedSlot.value.slot_id,
       start_time: selectedSlot.value.start_time.slice(0, 5),
       ...form.value,
-      ...(selectedService.value ? { service_id: selectedService.value.id } : {}),
+      service_id: selectedService.value.id,
+      ...(captchaToken.value ? { captcha_token: captchaToken.value } : {}),
     })
     rememberBooking(data.token)
     router.push({ name: 'confirmation', query: { token: data.token } })
   } catch (e) {
     if ((e as { response?: { status?: number } }).response?.status === 409) {
       toast.error(t('booking.slotTaken'))
-      selectedSlot.value = null
+      resetTime()
       await loadTimes()
     } else {
       error.value = apiErrorMessage(e, t('booking.submitError'))
     }
+    // Captcha token važi za jedan zahtev
+    captcha.value?.reset()
   } finally {
     submitting.value = false
   }
@@ -247,7 +335,7 @@ async function handleSubmit() {
 
 <template>
   <div class="min-h-screen bg-gray-50">
-    <div class="max-w-4xl mx-auto px-4 py-8">
+    <div class="max-w-6xl mx-auto px-4 py-8">
 
       <div class="mb-6">
         <div class="flex items-center gap-3 mb-2">
@@ -271,217 +359,284 @@ async function handleSubmit() {
         {{ t('booking.noSlots') }}
       </div>
 
+      <div v-else-if="services.length === 0" class="text-center py-8 text-muted-foreground text-sm" data-testid="no-services">
+        {{ t('booking.noServices') }}
+      </div>
+
       <div v-else>
 
-        <!-- Step 1: Select worker -->
-        <div class="mb-6">
-          <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">{{ t('booking.selectWorker') }}</p>
-          <div class="flex flex-wrap gap-3">
-            <Button
-              v-for="w in workers"
-              :key="w.id"
-              variant="outline"
-              :aria-pressed="selectedWorkerId === w.id"
-              :class="[
-                'h-auto gap-2.5 rounded-xl px-4 py-2.5 shadow-none',
-                selectedWorkerId === w.id ? 'border-primary bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground' : '',
-              ]"
-              @click="pickWorker(w.id)"
-            >
-              <span class="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center shrink-0">
-                {{ w.name.charAt(0).toUpperCase() }}
-              </span>
-              <span class="text-sm font-medium">{{ w.name }}</span>
-            </Button>
-          </div>
-        </div>
+        <div class="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
 
-        <!-- Step 2: Select service (if worker has services) -->
-        <div v-if="selectedWorkerId && workerServices.length > 0" class="mb-6">
-          <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">{{ t('booking.selectService') }}</p>
-          <div class="flex flex-wrap gap-2">
-            <Button
-              v-for="service in workerServices"
-              :key="service.id"
-              variant="outline"
-              :aria-pressed="selectedService?.id === service.id"
-              :class="[
-                'h-auto rounded-xl px-4 py-2.5 shadow-none text-left whitespace-normal',
-                selectedService?.id === service.id ? 'border-primary bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground' : '',
-              ]"
-              @click="pickService(service)"
-            >
-              <span>{{ service.name }}</span>
-              <span v-if="service.price" class="ml-0.5 font-normal opacity-70">{{ formatPrice(service.price, locale, tenant.config?.currency) }}</span>
-            </Button>
-          </div>
-        </div>
+          <!-- Cenovnik i radnici; izbor jednog ili oba određuje termine na kalendaru -->
+          <aside class="space-y-6">
+            <div v-if="services.length > 0">
+              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">{{ t('booking.priceList') }}</p>
+              <div class="space-y-2">
+                <Button
+                  v-for="entry in services"
+                  :key="entry.service.id"
+                  variant="outline"
+                  data-testid="service-option"
+                  :disabled="!serviceAvailable(entry.service.id)"
+                  :aria-pressed="selectedService?.id === entry.service.id"
+                  :class="[
+                    'h-auto w-full flex-col items-stretch gap-1 rounded-xl px-4 py-3 text-left whitespace-normal shadow-none disabled:opacity-40',
+                    selectedService?.id === entry.service.id ? 'border-primary bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground' : 'bg-card',
+                  ]"
+                  @click="pickService(entry.service)"
+                >
+                  <span class="flex items-baseline justify-between gap-3">
+                    <span class="text-sm font-medium">{{ entry.service.name }}</span>
+                    <span v-if="entry.service.price" class="text-sm font-semibold shrink-0">
+                      {{ formatPrice(entry.service.price, locale, tenant.config?.currency) }}
+                    </span>
+                  </span>
+                  <span class="text-xs font-normal opacity-70">
+                    {{ entry.service.duration_minutes }} min · {{ entry.workers.map((w) => w.name).join(', ') }}
+                  </span>
+                </Button>
+              </div>
+            </div>
 
-        <!-- Step 3+: Calendar + slots -->
-        <div v-if="readyForTimes" class="flex flex-col lg:flex-row gap-6">
+            <div>
+              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">{{ t('booking.workersTitle') }}</p>
+              <div class="space-y-2" data-testid="worker-list">
+                <Button
+                  v-for="w in workers"
+                  :key="w.id"
+                  variant="outline"
+                  data-testid="worker-option"
+                  :disabled="!workerAvailable(w)"
+                  :aria-pressed="selectedWorkerId === w.id"
+                  :class="[
+                    'h-auto w-full justify-start gap-3 rounded-xl px-3 py-2.5 text-left whitespace-normal shadow-none disabled:opacity-40',
+                    selectedWorkerId === w.id ? 'border-primary bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground' : 'bg-card',
+                  ]"
+                  @click="pickWorker(w.id)"
+                >
+                  <WorkerAvatar :photo-url="w.photo_url" :size="12" />
+                  <span class="flex min-w-0 flex-col items-start">
+                    <span class="text-sm font-medium">{{ w.name }}</span>
+                    <span v-if="w.bio" class="text-xs font-normal opacity-70 line-clamp-2">{{ w.bio }}</span>
+                  </span>
+                </Button>
+              </div>
+            </div>
+          </aside>
 
-          <!-- Calendar -->
-          <div class="lg:w-80 shrink-0">
-            <Card size="sm">
-              <CardContent>
-                <div class="flex items-center justify-between mb-4">
-                  <Button variant="ghost" size="icon-sm" class="text-muted-foreground" :aria-label="t('common.prevMonth')" @click="prevMonth">
-                    <ChevronLeftIcon />
-                  </Button>
-                  <span class="text-sm font-medium capitalize">{{ monthLabel }}</span>
-                  <Button variant="ghost" size="icon-sm" class="text-muted-foreground" :aria-label="t('common.nextMonth')" @click="nextMonth">
-                    <ChevronRightIcon />
-                  </Button>
+          <section class="min-w-0">
+            <!-- Radnik i usluga još nisu oba izabrani -->
+            <Card v-if="!readyForTimes" data-testid="missing-choice">
+              <CardContent class="py-2 text-center text-muted-foreground">
+                <p class="text-2xl mb-2">✂️</p>
+                <p class="text-sm">{{ missingChoice }}</p>
+              </CardContent>
+            </Card>
+
+            <template v-else>
+              <div class="flex flex-col xl:flex-row gap-6">
+                <!-- Calendar -->
+                <div class="w-full max-w-sm xl:w-80 shrink-0">
+                  <Card size="sm">
+                    <CardContent>
+                      <div class="flex items-center justify-between mb-4">
+                        <Button variant="ghost" size="icon-sm" class="text-muted-foreground" :aria-label="t('common.prevMonth')" @click="prevMonth">
+                          <ChevronLeftIcon />
+                        </Button>
+                        <span class="text-sm font-medium capitalize">{{ monthLabel }}</span>
+                        <Button variant="ghost" size="icon-sm" class="text-muted-foreground" :aria-label="t('common.nextMonth')" @click="nextMonth">
+                          <ChevronRightIcon />
+                        </Button>
+                      </div>
+
+                      <div class="grid grid-cols-7 mb-1">
+                        <div v-for="d in calDays" :key="d"
+                          class="text-center text-xs text-muted-foreground py-1">{{ d }}</div>
+                      </div>
+
+                      <div class="grid grid-cols-7 gap-0.5">
+                        <div v-for="(day, i) in calendarDays" :key="i">
+                          <div v-if="!day" class="h-9" />
+                          <Button
+                            v-else
+                            :variant="selectedDate === day.date ? 'default' : 'ghost'"
+                            size="sm"
+                            :disabled="day.past || !day.available"
+                            :aria-pressed="selectedDate === day.date"
+                            :class="[
+                              'w-full h-9 text-xs',
+                              day.past || !day.available
+                                ? 'text-muted-foreground/40 disabled:opacity-100'
+                                : selectedDate !== day.date && 'bg-accent text-accent-foreground hover:bg-primary/15',
+                            ]"
+                            @click="pickDate(day)"
+                          >
+                            {{ day.day }}
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div class="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
+                        <span class="flex items-center gap-1">
+                          <span class="w-3 h-3 rounded bg-accent inline-block" /> {{ t('booking.available') }}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
 
-                <div class="grid grid-cols-7 mb-1">
-                  <div v-for="d in calDays" :key="d"
-                    class="text-center text-xs text-muted-foreground py-1">{{ d }}</div>
-                </div>
+                <!-- Right column -->
+                <div class="flex-1">
 
-                <div class="grid grid-cols-7 gap-0.5">
-                  <div v-for="(day, i) in calendarDays" :key="i">
-                    <div v-if="!day" class="h-9" />
-                    <Button
-                      v-else
-                      :variant="selectedDate === day.date ? 'default' : 'ghost'"
-                      size="sm"
-                      :disabled="day.past || !day.available"
-                      :aria-pressed="selectedDate === day.date"
-                      :class="[
-                        'w-full h-9 text-xs',
-                        day.past || !day.available
-                          ? 'text-muted-foreground/40 disabled:opacity-100'
-                          : selectedDate !== day.date && 'bg-accent text-accent-foreground hover:bg-primary/15',
-                      ]"
-                      @click="pickDate(day)"
-                    >
-                      {{ day.day }}
-                    </Button>
+                  <!-- No date selected -->
+                  <Card v-if="!selectedDate">
+                    <CardContent class="py-2 text-center text-muted-foreground">
+                      <p class="text-2xl mb-2">📅</p>
+                      <p class="text-sm">{{ t('booking.selectDate') }}</p>
+                    </CardContent>
+                  </Card>
+
+                  <!-- Izabran dan: bira se vreme -->
+                  <div v-else-if="!selectedTime">
+                    <div class="flex items-center gap-2 mb-4">
+                      <Button variant="link" size="xs" class="px-0 text-muted-foreground" @click="selectedDate = null">
+                        {{ t('booking.backCalendar') }}
+                      </Button>
+                      <span class="text-muted-foreground/50">·</span>
+                      <p class="text-sm font-medium capitalize">
+                        {{ formatDate(selectedDate) }}
+                      </p>
+                    </div>
+
+                    <Card v-if="timesForDate.length === 0">
+                      <CardContent class="py-2 text-center text-muted-foreground text-sm">
+                        {{ t('booking.noSlotsDay') }}
+                      </CardContent>
+                    </Card>
+
+                    <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <Button
+                        v-for="choice in timesForDate"
+                        :key="choice.start_time"
+                        variant="outline"
+                        data-testid="time-option"
+                        class="h-auto flex-col items-start gap-0.5 rounded-xl bg-card p-4 shadow-none hover:border-primary/60 hover:bg-card hover:shadow-sm"
+                        @click="pickTime(choice)"
+                      >
+                        <span>{{ choice.start_time.slice(0, 5) }} — {{ choice.end_time.slice(0, 5) }}</span>
+                        <span v-if="!selectedWorker" class="text-xs font-normal text-muted-foreground">
+                          {{ t('booking.freeWorkers', choice.options.length) }}
+                        </span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <!-- Izabrano vreme bez radnika: bira se jedan od radnika slobodnih u to vreme -->
+                  <div v-else-if="!selectedSlot" data-testid="time-workers">
+                    <div class="flex items-center gap-2 mb-4">
+                      <Button variant="link" size="xs" class="px-0 text-muted-foreground" @click="resetTime">
+                        {{ t('booking.backToTimes') }}
+                      </Button>
+                      <span class="text-muted-foreground/50">·</span>
+                      <p class="text-sm font-medium capitalize">
+                        {{ formatDate(selectedTime.date) }}, {{ selectedTime.start_time.slice(0, 5) }}
+                      </p>
+                    </div>
+                    <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">{{ t('booking.pickFreeWorker') }}</p>
+                    <div class="grid gap-2 sm:grid-cols-2">
+                      <Button
+                        v-for="option in selectedTime.options"
+                        :key="option.worker_id"
+                        variant="outline"
+                        class="h-auto justify-start gap-3 rounded-xl bg-card px-3 py-2.5 text-left whitespace-normal shadow-none hover:border-primary/60 hover:bg-card"
+                        @click="pickTimeWorker(option)"
+                      >
+                        <WorkerAvatar :photo-url="workerById(option.worker_id)?.photo_url" :size="12" />
+                        <span class="flex min-w-0 flex-col items-start">
+                          <span class="text-sm font-medium">{{ workerName(option.worker_id) }}</span>
+                          <span v-if="workerById(option.worker_id)?.bio" class="text-xs font-normal opacity-70 line-clamp-2">
+                            {{ workerById(option.worker_id)?.bio }}
+                          </span>
+                        </span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <!-- Slot selected: form -->
+                  <div v-else>
+                    <div class="bg-accent text-accent-foreground rounded-xl p-4 mb-5 flex items-start justify-between">
+                      <div>
+                        <p class="text-sm font-medium">
+                          {{ workerName(selectedSlot.worker_id) }}
+                          <span v-if="selectedService" class="font-normal opacity-80"> · {{ selectedService.name }}<template v-if="selectedService.price"> ({{ formatPrice(selectedService.price, locale, tenant.config?.currency) }})</template></span>
+                        </p>
+                        <p class="text-sm capitalize mt-0.5 opacity-90">
+                          {{ formatDate(selectedSlot.date) }}
+                        </p>
+                        <p class="text-sm opacity-90">
+                          {{ selectedSlot.start_time.slice(0, 5) }} — {{ selectedSlot.end_time.slice(0, 5) }}
+                        </p>
+                      </div>
+                      <Button variant="link" size="xs" class="px-0" @click="resetTime">
+                        {{ t('booking.change') }}
+                      </Button>
+                    </div>
+
+                    <Card>
+                      <CardContent>
+                        <h2 class="text-sm font-semibold mb-4">{{ t('booking.yourDetails') }}</h2>
+
+                        <form @submit.prevent="handleSubmit" class="space-y-4">
+                          <div class="grid gap-1.5">
+                            <Label for="booking-name">
+                              {{ t('booking.fullName') }} <span class="text-destructive">*</span>
+                            </Label>
+                            <Input id="booking-name" v-model="form.customer_name" type="text" :placeholder="t('booking.fullNamePlaceholder')" />
+                          </div>
+
+                          <div class="grid gap-1.5">
+                            <Label for="booking-email">
+                              {{ t('booking.email') }}
+                              <span v-if="emailRequired" class="text-destructive">*</span>
+                              <span v-else-if="contactRule === 'email_or_phone'" class="font-normal opacity-80">{{ t('booking.orPhone') }}</span>
+                              <span v-else class="font-normal opacity-80">({{ t('common.optional') }})</span>
+                            </Label>
+                            <Input id="booking-email" v-model="form.customer_email" type="email" placeholder="vas@email.com" />
+                          </div>
+
+                          <div class="grid gap-1.5">
+                            <Label for="booking-phone">
+                              {{ t('booking.phone') }}
+                              <span v-if="phoneRequired" class="text-destructive">*</span>
+                              <span v-else-if="contactRule === 'email_or_phone'" class="font-normal opacity-80">{{ t('booking.orEmail') }}</span>
+                              <span v-else class="font-normal opacity-80">({{ t('common.optional') }})</span>
+                            </Label>
+                            <Input id="booking-phone" v-model="form.customer_phone" type="tel" placeholder="+381 60 123 4567" />
+                          </div>
+
+                          <div class="grid gap-1.5">
+                            <Label for="booking-note">
+                              {{ t('booking.note') }} <span class="font-normal opacity-80">({{ t('common.optional') }})</span>
+                            </Label>
+                            <Textarea id="booking-note" v-model="form.note" rows="3" :placeholder="t('booking.notePlaceholder')" class="resize-none field-sizing-fixed" />
+                          </div>
+
+                          <p v-if="error" class="text-destructive text-sm">{{ error }}</p>
+
+                          <TurnstileWidget ref="captcha" v-model="captchaToken" />
+
+                          <Button type="submit" size="lg" class="w-full" :disabled="submitting">
+                            {{ submitting ? t('booking.confirming') : t('booking.confirm') }}
+                          </Button>
+                        </form>
+                      </CardContent>
+                    </Card>
                   </div>
                 </div>
-
-                <div class="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
-                  <span class="flex items-center gap-1">
-                    <span class="w-3 h-3 rounded bg-accent inline-block" /> {{ t('booking.available') }}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <!-- Right column -->
-          <div class="flex-1">
-
-            <!-- No date selected -->
-            <Card v-if="!selectedDate">
-              <CardContent class="py-2 text-center text-muted-foreground">
-                <p class="text-2xl mb-2">📅</p>
-                <p class="text-sm">{{ t('booking.selectDate') }}</p>
-              </CardContent>
-            </Card>
-
-            <!-- Date selected, pick slot -->
-            <div v-else-if="!selectedSlot">
-              <div class="flex items-center gap-2 mb-4">
-                <Button variant="link" size="xs" class="px-0 text-muted-foreground" @click="selectedDate = null">
-                  {{ t('booking.backCalendar') }}
-                </Button>
-                <span class="text-muted-foreground/50">·</span>
-                <p class="text-sm font-medium capitalize">
-                  {{ formatDate(selectedDate) }}
-                </p>
               </div>
-
-              <Card v-if="timesForDate.length === 0">
-                <CardContent class="py-2 text-center text-muted-foreground text-sm">
-                  {{ t('booking.noSlotsDay') }}
-                </CardContent>
-              </Card>
-
-              <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                <Button
-                  v-for="slot in timesForDate"
-                  :key="`${slot.slot_id}-${slot.start_time}`"
-                  variant="outline"
-                  class="h-auto justify-start rounded-xl bg-card p-4 shadow-none hover:border-primary/60 hover:bg-card hover:shadow-sm"
-                  @click="pickSlot(slot)"
-                >
-                  {{ slot.start_time.slice(0, 5) }} — {{ slot.end_time.slice(0, 5) }}
-                </Button>
-              </div>
-            </div>
-
-            <!-- Slot selected: form -->
-            <div v-else>
-              <div class="bg-accent text-accent-foreground rounded-xl p-4 mb-5 flex items-start justify-between">
-                <div>
-                  <p class="text-sm font-medium">
-                    {{ workers.find(w => w.id === selectedWorkerId)?.name }}
-                    <span v-if="selectedService" class="font-normal opacity-80"> · {{ selectedService.name }}<template v-if="selectedService.price"> ({{ formatPrice(selectedService.price, locale, tenant.config?.currency) }})</template></span>
-                  </p>
-                  <p class="text-sm capitalize mt-0.5 opacity-90">
-                    {{ formatDate(selectedSlot.date) }}
-                  </p>
-                  <p class="text-sm opacity-90">
-                    {{ selectedSlot.start_time.slice(0, 5) }} — {{ selectedSlot.end_time.slice(0, 5) }}
-                  </p>
-                </div>
-                <Button variant="link" size="xs" class="px-0" @click="selectedSlot = null">
-                  {{ t('booking.change') }}
-                </Button>
-              </div>
-
-              <Card>
-                <CardContent>
-                  <h2 class="text-sm font-semibold mb-4">{{ t('booking.yourDetails') }}</h2>
-
-                  <form @submit.prevent="handleSubmit" class="space-y-4">
-                    <div class="grid gap-1.5">
-                      <Label for="booking-name">
-                        {{ t('booking.fullName') }} <span class="text-destructive">*</span>
-                      </Label>
-                      <Input id="booking-name" v-model="form.customer_name" type="text" :placeholder="t('booking.fullNamePlaceholder')" />
-                    </div>
-
-                    <div class="grid gap-1.5">
-                      <Label for="booking-email">{{ t('booking.email') }}</Label>
-                      <Input id="booking-email" v-model="form.customer_email" type="email" placeholder="vas@email.com" />
-                    </div>
-
-                    <div class="grid gap-1.5">
-                      <Label for="booking-phone">
-                        {{ t('booking.phone') }} <span class="font-normal opacity-80">{{ t('booking.orEmail') }}</span>
-                      </Label>
-                      <Input id="booking-phone" v-model="form.customer_phone" type="tel" placeholder="+381 60 123 4567" />
-                    </div>
-
-                    <div class="grid gap-1.5">
-                      <Label for="booking-note">
-                        {{ t('booking.note') }} <span class="font-normal opacity-80">({{ t('common.optional') }})</span>
-                      </Label>
-                      <Textarea id="booking-note" v-model="form.note" rows="3" :placeholder="t('booking.notePlaceholder')" class="resize-none field-sizing-fixed" />
-                    </div>
-
-                    <p v-if="error" class="text-destructive text-sm">{{ error }}</p>
-
-                    <Button type="submit" size="lg" class="w-full" :disabled="submitting">
-                      {{ submitting ? t('booking.confirming') : t('booking.confirm') }}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+            </template>
+          </section>
         </div>
-
-        <!-- Radnik ili usluga još nisu izabrani -->
-        <Card v-else>
-          <CardContent class="py-2 text-center text-muted-foreground">
-            <p class="text-2xl mb-2">{{ selectedWorkerId ? '✂️' : '👤' }}</p>
-            <p class="text-sm">{{ selectedWorkerId ? t('booking.servicePlaceholder') : t('booking.workerPlaceholder') }}</p>
-          </CardContent>
-        </Card>
 
       </div>
     </div>

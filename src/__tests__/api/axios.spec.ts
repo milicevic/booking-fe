@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { InternalAxiosRequestConfig } from 'axios'
-import { AxiosHeaders } from 'axios'
-import api from '@/api/axios'
+import { AxiosError, AxiosHeaders } from 'axios'
+import api, { onUnauthorized } from '@/api/axios'
 import { i18n } from '@/i18n'
 
 // Pokreće request interceptor nad praznim configom i vraća headere
@@ -54,5 +54,33 @@ describe('api client tenant resolution', () => {
   it('sends JSON headers by default', () => {
     expect(api.defaults.headers['Accept']).toBe('application/json')
     expect(api.defaults.withCredentials).toBe(true)
+  })
+})
+
+describe('api client unauthorized handling', () => {
+  function rejected(status: number, withToken: boolean) {
+    const handler = (api.interceptors.response as unknown as { handlers: Array<{ rejected: (e: unknown) => Promise<unknown> }> }).handlers[0]!
+    const config = { headers: new AxiosHeaders(withToken ? { Authorization: 'Bearer x' } : {}) } as InternalAxiosRequestConfig
+    const error = new AxiosError('fail', undefined, config, undefined, { status, data: {}, headers: {}, statusText: '', config } as never)
+    return handler.rejected(error).catch(() => undefined)
+  }
+
+  it('reports a 401 for a request that carried a token', async () => {
+    const handler = vi.fn()
+    onUnauthorized(handler)
+
+    await rejected(401, true)
+
+    expect(handler).toHaveBeenCalledOnce()
+  })
+
+  it('ignores 401 without a token (e.g. wrong password) and other errors', async () => {
+    const handler = vi.fn()
+    onUnauthorized(handler)
+
+    await rejected(401, false)
+    await rejected(403, true)
+
+    expect(handler).not.toHaveBeenCalled()
   })
 })

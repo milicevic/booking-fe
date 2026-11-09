@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import NotificationList from '@/components/NotificationList.vue'
+import WorkerProfileEditor from '@/components/admin/WorkerProfileEditor.vue'
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from '@lucide/vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,10 +15,13 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { adminApi } from '@/api/admin'
 import { tenantUrl } from '@/lib/domain'
+import { buildSlotCandidates, splitByExisting } from '@/lib/slotGenerator'
+import { isAxiosError } from 'axios'
 import { useAuthStore } from '@/stores/auth'
 import { useTenantStore } from '@/stores/tenant'
 import { useAdminContextStore } from '@/stores/adminContext'
 import type { Worker, AdminClient } from '@/api/admin'
+import type { CustomerContact } from '@/api/tenant'
 import type { Booking, Slot } from '@/api/booking'
 import { apiErrorMessage } from '@/lib/apiError'
 
@@ -34,6 +38,9 @@ const generateSuccess = ref('')
 // ─── Auth / role ──────────────────────────────────────────────────────────────
 const auth = useAuthStore()
 const isWorker = computed(() => auth.client?.role === 'worker')
+
+// Radnik sam uređuje svoju sliku i opis koje kupci vide pri zakazivanju
+const ownProfile = ref<Worker | null>(null)
 const isAdmin = computed(() => auth.client?.role === 'admin')
 
 // ─── Admin: client list ───────────────────────────────────────────────────────
@@ -91,6 +98,30 @@ async function toggleAutoConfirm() {
     const { data } = await adminApi.updateSettings({ auto_confirm_bookings: !autoConfirm.value })
     autoConfirm.value = data.client_profile?.auto_confirm_bookings ?? false
     auth.client = data
+  } finally {
+    savingSettings.value = false
+  }
+}
+
+// ─── Kontakt kupca pri zakazivanju ────────────────────────────────────────────
+const CUSTOMER_CONTACT_OPTIONS: CustomerContact[] = ['email_or_phone', 'both', 'phone', 'email']
+const customerContact = ref<CustomerContact>('email_or_phone')
+
+function onCustomerContactChange(value: unknown) {
+  const option = CUSTOMER_CONTACT_OPTIONS.find((o) => o === value)
+  if (option && option !== customerContact.value) saveCustomerContact(option)
+}
+
+async function saveCustomerContact(value: CustomerContact) {
+  const previous = customerContact.value
+  customerContact.value = value
+  savingSettings.value = true
+  try {
+    const { data } = await adminApi.updateSettings({ customer_contact: value })
+    customerContact.value = data.client_profile?.customer_contact ?? value
+    auth.client = data
+  } catch {
+    customerContact.value = previous
   } finally {
     savingSettings.value = false
   }
@@ -212,48 +243,24 @@ function removeBreak(i: number) {
 }
 
 // ─── Slot generation logic ────────────────────────────────────────────────────
-function buildSlots() {
-  const result: { date: string; start: string; end: string }[] = []
+// Kandidati iz forme, podeljeni na nove i one koje radnik već ima (ti se preskaču)
+const generatedSlots = computed(() => {
+  const candidates = buildSlotCandidates({
+    dateFrom: form.value.date_from,
+    dateTo: form.value.date_to,
+    weekdays: form.value.weekdays,
+    workStart: form.value.work_start,
+    workEnd: form.value.work_end,
+    slotDuration: form.value.slot_duration,
+    breaks: form.value.breaks,
+  })
+  return form.value.worker_id
+    ? splitByExisting(candidates, slots.value, Number(form.value.worker_id))
+    : { fresh: candidates, existing: [] }
+})
 
-  const from = new Date(form.value.date_from)
-  const to = new Date(form.value.date_to)
-  if (from > to) return result
-
-  const [endH = 0, endM = 0] = form.value.work_end.split(':').map(Number)
-  const workEndMin = endH * 60 + endM
-
-  for (const cur = new Date(from); cur <= to; cur.setDate(cur.getDate() + 1)) {
-    const dow = cur.getDay() === 0 ? 7 : cur.getDay()
-    if (!form.value.weekdays.includes(dow)) continue
-
-    const dateStr = cur.toISOString().slice(0, 10)
-    const [sh = 0, sm = 0] = form.value.work_start.split(':').map(Number)
-    let cursor = sh * 60 + sm
-
-    while (cursor + form.value.slot_duration <= workEndMin) {
-      const slotEnd = cursor + form.value.slot_duration
-
-      const inBreak = form.value.breaks.some(br => {
-        if (!br.start || !br.end) return false
-        const [bsh = 0, bsm = 0] = br.start.split(':').map(Number)
-        const [beh = 0, bem = 0] = br.end.split(':').map(Number)
-        return cursor < beh * 60 + bem && slotEnd > bsh * 60 + bsm
-      })
-
-      if (!inBreak) {
-        const fmt = (min: number) =>
-          `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
-        result.push({ date: dateStr, start: fmt(cursor), end: fmt(slotEnd) })
-      }
-
-      cursor += form.value.slot_duration
-    }
-  }
-
-  return result
-}
-
-const preview = computed(() => buildSlots().length)
+const preview = computed(() => generatedSlots.value.fresh.length)
+const alreadyExisting = computed(() => generatedSlots.value.existing.length)
 
 async function handleGenerate() {
   generateError.value = ''
@@ -263,25 +270,41 @@ async function handleGenerate() {
   if (!form.value.date_from || !form.value.date_to) return (generateError.value = t('dashboard.generate.errorNoPeriod'))
   if (form.value.weekdays.length === 0) return (generateError.value = t('dashboard.generate.errorNoDays'))
 
-  const toCreate = buildSlots()
-  if (toCreate.length === 0) return (generateError.value = t('dashboard.generate.errorNoSlots'))
+  const toCreate = generatedSlots.value.fresh
+  if (toCreate.length === 0) {
+    return (generateError.value = alreadyExisting.value > 0 ? t('dashboard.generate.errorAllExist') : t('dashboard.generate.errorNoSlots'))
+  }
 
   generating.value = true
+  let created = 0
+  let skipped = alreadyExisting.value
   try {
     for (const s of toCreate) {
-      await adminApi.createSlot({
-        worker_id: Number(form.value.worker_id),
-        date: s.date,
-        start_time: s.start,
-        end_time: s.end,
-      })
+      try {
+        await adminApi.createSlot({
+          worker_id: Number(form.value.worker_id),
+          date: s.date,
+          start_time: s.start,
+          end_time: s.end,
+        })
+        created++
+      } catch (e) {
+        // Termin je u međuvremenu napravljen (npr. u drugom prozoru): backend ga odbija, preskačemo ga
+        if (isAxiosError(e) && e.response?.status === 422) {
+          skipped++
+          continue
+        }
+        throw e
+      }
     }
-    generateSuccess.value = t('dashboard.generate.success', { count: toCreate.length })
-    await fetchSlots()
+    generateSuccess.value = skipped > 0
+      ? t('dashboard.generate.successWithSkipped', { count: created, skipped })
+      : t('dashboard.generate.success', { count: created })
   } catch (e) {
     generateError.value = apiErrorMessage(e, t('dashboard.generate.errorGenerate'))
   } finally {
     generating.value = false
+    await fetchSlots()
   }
 }
 
@@ -322,14 +345,16 @@ watch(() => auth.client, async (client) => {
     if (isAdmin.value) {
       await loadClients()
     } else if (isWorker.value) {
-      const [sRes, bRes] = await Promise.all([adminApi.getSlots(), adminApi.getBookings()])
+      const [sRes, bRes, meRes] = await Promise.all([adminApi.getSlots(), adminApi.getBookings(), adminApi.getWorker(client.id)])
       slots.value = sRes.data
       bookings.value = bRes.data
+      ownProfile.value = meRes.data
     } else {
       const [sRes, wRes] = await Promise.all([adminApi.getSlots(), adminApi.getWorkers()])
       slots.value = sRes.data
       workers.value = wRes.data
       autoConfirm.value = client.client_profile?.auto_confirm_bookings ?? false
+      customerContact.value = client.client_profile?.customer_contact ?? 'email_or_phone'
     }
   } finally {
     loading.value = false
@@ -466,6 +491,16 @@ function formatTime(t: string) {
             </CardContent>
           </Card>
         </div>
+
+        <Card v-if="ownProfile" class="mt-6" data-testid="worker-own-profile">
+          <CardContent class="space-y-4">
+            <div>
+              <h2 class="text-sm font-semibold">{{ t('workers.myProfile') }}</h2>
+              <p class="text-xs text-muted-foreground mt-0.5">{{ t('workers.myProfileHint') }}</p>
+            </div>
+            <WorkerProfileEditor :worker="ownProfile" @updated="ownProfile = $event" />
+          </CardContent>
+        </Card>
       </template>
     </template>
 
@@ -474,20 +509,38 @@ function formatTime(t: string) {
       <template v-if="!isAdmin">
         <NotificationList />
 
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
           <h1 class="text-xl font-semibold">{{ t('dashboard.title') }}</h1>
 
-          <div class="flex items-center gap-3">
-            <Label for="auto-confirm" class="font-normal">
-              {{ autoConfirm ? t('dashboard.autoConfirm') : t('dashboard.manualConfirm') }}
-            </Label>
-            <Switch
-              id="auto-confirm"
-              :model-value="autoConfirm"
-              :disabled="savingSettings"
-              class="data-checked:bg-green-500"
-              @update:model-value="toggleAutoConfirm"
-            />
+          <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div class="flex items-center gap-2">
+              <Label for="customer-contact" class="font-normal shrink-0">{{ t('dashboard.customerContact.label') }}</Label>
+              <NativeSelect
+                id="customer-contact"
+                :model-value="customerContact"
+                :disabled="savingSettings"
+                size="sm"
+                class="w-auto"
+                @update:model-value="onCustomerContactChange"
+              >
+                <NativeSelectOption v-for="option in CUSTOMER_CONTACT_OPTIONS" :key="option" :value="option">
+                  {{ t(`dashboard.customerContact.${option}`) }}
+                </NativeSelectOption>
+              </NativeSelect>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <Label for="auto-confirm" class="font-normal">
+                {{ autoConfirm ? t('dashboard.autoConfirm') : t('dashboard.manualConfirm') }}
+              </Label>
+              <Switch
+                id="auto-confirm"
+                :model-value="autoConfirm"
+                :disabled="savingSettings"
+                class="data-checked:bg-green-500"
+                @update:model-value="toggleAutoConfirm"
+              />
+            </div>
           </div>
         </div>
 
@@ -714,6 +767,9 @@ function formatTime(t: string) {
                   <span class="text-xs text-muted-foreground">{{ t('dashboard.generate.willGenerate') }}</span>
                   <span class="text-sm font-semibold text-primary">{{ preview }} {{ t('dashboard.generate.slots') }}</span>
                 </div>
+                <p v-if="alreadyExisting > 0" class="text-xs text-muted-foreground" data-testid="generate-existing">
+                  {{ t('dashboard.generate.alreadyExisting', { count: alreadyExisting }) }}
+                </p>
 
                 <p v-if="generateError" class="text-destructive text-xs">{{ generateError }}</p>
                 <p v-if="generateSuccess" class="text-green-600 text-xs font-medium">{{ generateSuccess }}</p>

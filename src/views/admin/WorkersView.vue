@@ -2,18 +2,25 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
+import { useToast } from '@/composables/useToast'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
-import { XIcon } from '@lucide/vue'
-import { Button } from '@/components/ui/button'
+import { PencilIcon, XIcon } from '@lucide/vue'
+import WorkerAvatar from '@/components/WorkerAvatar.vue'
+import WorkerProfileEditor from '@/components/admin/WorkerProfileEditor.vue'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
+import { Textarea } from '@/components/ui/textarea'
 import { adminApi } from '@/api/admin'
 import { useAdminContextStore } from '@/stores/adminContext'
 import type { Worker } from '@/api/admin'
 import { apiErrorMessage } from '@/lib/apiError'
+import { cn } from '@/lib/utils'
 
 const { t } = useI18n()
 const { confirm } = useConfirm()
+const toast = useToast()
 const adminContext = useAdminContextStore()
 const workers = ref<Worker[]>([])
 const loading = ref(true)
@@ -25,7 +32,31 @@ const form = ref({
   name: '',
   email: '',
   phone: '',
+  bio: '',
 })
+
+// Radnik čiji se opis i slika upravo uređuju
+const editingId = ref<number | null>(null)
+
+function onWorkerUpdated(updated: Worker) {
+  workers.value = workers.value.map((w) => (w.id === updated.id ? { ...w, name: updated.name, worker_profile: updated.worker_profile } : w))
+}
+
+// Slika izabrana u formi za novog radnika; postavlja se odmah posle kreiranja
+const newPhoto = ref<File | null>(null)
+const newPhotoPreview = ref<string | null>(null)
+
+function setNewPhoto(file: File | null) {
+  if (newPhotoPreview.value) URL.revokeObjectURL(newPhotoPreview.value)
+  newPhoto.value = file
+  newPhotoPreview.value = file ? URL.createObjectURL(file) : null
+}
+
+function pickNewPhoto(event: Event) {
+  const input = event.target as HTMLInputElement
+  setNewPhoto(input.files?.[0] ?? null)
+  input.value = ''
+}
 
 onMounted(async () => {
   await fetchWorkers()
@@ -51,8 +82,16 @@ async function handleCreate() {
   error.value = ''
 
   try {
-    await adminApi.createWorker(form.value)
-    form.value = { name: '', email: '', phone: '' }
+    const { data: created } = await adminApi.createWorker(form.value)
+    if (newPhoto.value) {
+      try {
+        await adminApi.uploadWorkerPhoto(created.id, newPhoto.value)
+      } catch (e) {
+        toast.error(apiErrorMessage(e, t('workers.photoError')))
+      }
+    }
+    form.value = { name: '', email: '', phone: '', bio: '' }
+    setNewPhoto(null)
     showForm.value = false
     await fetchWorkers()
   } catch (e) {
@@ -102,6 +141,24 @@ async function handleDelete(worker: Worker) {
               class="min-w-0"
             />
           </div>
+          <div class="flex items-center gap-3">
+            <WorkerAvatar :photo-url="newPhotoPreview" :size="12" />
+            <label class="cursor-pointer">
+              <span :class="cn(buttonVariants({ variant: 'outline', size: 'sm' }))" data-testid="new-worker-photo">
+                {{ newPhoto ? t('workers.changePhoto') : t('workers.uploadPhoto') }}
+              </span>
+              <input type="file" accept="image/png,image/jpeg,image/webp" class="sr-only" @change="pickNewPhoto" />
+            </label>
+            <span class="text-xs text-muted-foreground">{{ t('workers.photoOptional') }}</span>
+          </div>
+          <Textarea
+            v-model="form.bio"
+            rows="2"
+            maxlength="500"
+            :aria-label="t('workers.bio')"
+            :placeholder="t('workers.bioPlaceholder')"
+            class="resize-none field-sizing-fixed"
+          />
           <p v-if="error" class="text-destructive text-sm">{{ error }}</p>
           <div class="flex gap-2 sm:justify-end">
             <Button class="flex-1 sm:flex-none sm:px-6" :disabled="submitting" @click="handleCreate">
@@ -119,26 +176,46 @@ async function handleDelete(worker: Worker) {
 
     <div v-else class="space-y-2">
       <Card v-for="worker in workers" :key="worker.id" size="sm">
-        <CardContent class="flex items-center justify-between gap-3">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="w-9 h-9 shrink-0 bg-accent rounded-full flex items-center justify-center text-primary font-medium text-sm">
-              {{ worker.name.charAt(0).toUpperCase() }}
+        <CardContent class="space-y-4">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <WorkerAvatar :photo-url="worker.worker_profile?.photo_url" :size="12" />
+              <div class="min-w-0">
+                <p class="text-sm font-medium truncate">{{ worker.name }}</p>
+                <p class="text-xs text-muted-foreground truncate">{{ worker.email ?? worker.worker_profile?.phone ?? '—' }}</p>
+                <p v-if="worker.worker_profile?.bio" class="text-xs text-muted-foreground mt-1 line-clamp-2">
+                  {{ worker.worker_profile.bio }}
+                </p>
+              </div>
             </div>
-            <div class="min-w-0">
-              <p class="text-sm font-medium truncate">{{ worker.name }}</p>
-              <p class="text-xs text-muted-foreground truncate">{{ worker.email ?? worker.worker_profile?.phone ?? '—' }}</p>
+
+            <div class="flex items-center gap-1 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                class="gap-1.5"
+                :aria-expanded="editingId === worker.id"
+                @click="editingId = editingId === worker.id ? null : worker.id"
+              >
+                <PencilIcon />
+                {{ t('workers.edit') }}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                class="text-muted-foreground hover:text-destructive"
+                :aria-label="t('common.delete')"
+                @click="handleDelete(worker)"
+              >
+                <XIcon />
+              </Button>
             </div>
           </div>
 
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            class="text-muted-foreground hover:text-destructive shrink-0"
-            :aria-label="t('common.delete')"
-            @click="handleDelete(worker)"
-          >
-            <XIcon />
-          </Button>
+          <template v-if="editingId === worker.id">
+            <Separator />
+            <WorkerProfileEditor :worker="worker" can-edit-name @updated="onWorkerUpdated" />
+          </template>
         </CardContent>
       </Card>
 

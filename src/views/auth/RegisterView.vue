@@ -7,6 +7,8 @@ import { apiErrorMessage } from '@/lib/apiError'
 import { isPlatformHost, tenantUrl } from '@/lib/domain'
 import AuthLayout from '@/components/auth/AuthLayout.vue'
 import GoogleButton from '@/components/auth/GoogleButton.vue'
+import TurnstileWidget from '@/components/TurnstileWidget.vue'
+import { captchaEnabled } from '@/lib/captcha'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -56,15 +58,21 @@ watchDebounced(
   { debounce: 300 },
 )
 
+// Zaštita od botova (prazno dok captcha nije uključena)
+const captchaToken = ref<string | null>(null)
+const captcha = ref<InstanceType<typeof TurnstileWidget> | null>(null)
+
 async function handleSubmit() {
   error.value = ''
+  if (captchaEnabled() && !captchaToken.value) return (error.value = t('booking.captchaRequired'))
   loading.value = true
   try {
-    const { data } = await tenantApi.register(form)
+    const { data } = await tenantApi.register({ ...form, ...(captchaToken.value ? { captcha_token: captchaToken.value } : {}) })
     registeredSubdomain.value = data.tenant.subdomain
     success.value = true
   } catch (e) {
     error.value = apiErrorMessage(e, t('auth.registerError'))
+    captcha.value?.reset()
   } finally {
     loading.value = false
   }
@@ -164,6 +172,8 @@ async function handleSubmit() {
           <p class="text-xs text-muted-foreground">{{ t('auth.customizeLater') }}</p>
 
           <p v-if="error" class="text-destructive text-xs">{{ error }}</p>
+
+          <TurnstileWidget ref="captcha" v-model="captchaToken" />
 
           <Button type="submit" size="lg" class="w-full" :disabled="loading">
             {{ loading ? t('auth.creating') : t('auth.createBtn') }}

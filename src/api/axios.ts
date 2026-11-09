@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { isAxiosError } from 'axios'
 import { i18n } from '@/i18n'
 import { isPlatformHostname } from '@/lib/domain'
 
@@ -50,6 +50,21 @@ api.interceptors.request.use((config) => {
   }
 
   return config
+})
+
+// Istekao ili opozvan token: API vraća 401 na zahtev koji je nosio token. Šta tada (odjava,
+// povratak na prijavu) određuje aplikacija preko onUnauthorized, da klijent ne zavisi od store-a i rutera.
+let unauthorizedHandler: (() => void) | null = null
+
+export function onUnauthorized(handler: () => void) {
+  unauthorizedHandler = handler
+}
+
+api.interceptors.response.use(undefined, (error) => {
+  if (isAxiosError(error) && error.response?.status === 401 && error.config?.headers?.Authorization) {
+    unauthorizedHandler?.()
+  }
+  return Promise.reject(error)
 })
 
 export default api

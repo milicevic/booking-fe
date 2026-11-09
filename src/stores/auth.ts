@@ -1,11 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '@/api/axios'
+import type { CustomerContact } from '@/api/tenant'
 import { isAxiosError } from 'axios'
 
 interface ClientProfile {
   id: number
   auto_confirm_bookings: boolean
+  customer_contact: CustomerContact
 }
 
 export interface Client {
@@ -38,12 +40,17 @@ export const useAuthStore = defineStore('auth', () => {
     api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`
   }
 
-  async function logout() {
-    await api.post('/api/auth/logout')
+  // Briše prijavu samo u pregledaču (npr. kad je token istekao, pa ga backend više ne prihvata)
+  function clearSession() {
     token.value = null
     client.value = null
     localStorage.removeItem('token')
     delete api.defaults.headers.common['Authorization']
+  }
+
+  async function logout() {
+    await api.post('/api/auth/logout')
+    clearSession()
   }
 
   async function fetchMe() {
@@ -52,12 +59,7 @@ export const useAuthStore = defineStore('auth', () => {
       const { data } = await api.get('/api/auth/me')
       client.value = data
     } catch (e) {
-      if (isAxiosError(e) && e.response?.status === 401) {
-        token.value = null
-        client.value = null
-        localStorage.removeItem('token')
-        delete api.defaults.headers.common['Authorization']
-      }
+      if (isAxiosError(e) && e.response?.status === 401) clearSession()
     }
   }
 
@@ -73,6 +75,15 @@ export const useAuthStore = defineStore('auth', () => {
     await api.post('/api/auth/email/resend', { email })
   }
 
+  // Zaboravljena lozinka: backend šalje link na mejl (odgovor je isti i kad nalog ne postoji)
+  async function requestPasswordReset(email: string) {
+    await api.post('/api/auth/password/forgot', { email })
+  }
+
+  async function resetPassword(data: { token: string; email: string; password: string; password_confirmation: string }) {
+    await api.post('/api/auth/password/reset', data)
+  }
+
   // Prijava tokenom koji je backend vratio posle Google prijave (korisnika učitavamo posebno)
   async function loginWithToken(newToken: string) {
     token.value = newToken
@@ -81,5 +92,5 @@ export const useAuthStore = defineStore('auth', () => {
     await fetchMe()
   }
 
-  return { client, token, isLoggedIn, login, logout, fetchMe, setSession, loginWithToken, resendVerification }
+  return { client, token, isLoggedIn, login, logout, clearSession, fetchMe, setSession, loginWithToken, resendVerification, requestPasswordReset, resetPassword }
 })

@@ -35,6 +35,7 @@ export interface Slot {
 /** Vreme u koje kupac može da zakaže; slot_id je termin u kom rezervacija počinje. */
 export interface BookableTime {
   slot_id: number
+  worker_id: number
   date: string
   start_time: string
   end_time: string
@@ -43,6 +44,8 @@ export interface BookableTime {
 export interface Worker {
   id: number
   name: string
+  photo_url?: string | null
+  bio?: string | null
   services?: Service[]
 }
 
@@ -54,7 +57,8 @@ export const bookingApi = {
     customer_email?: string
     customer_phone?: string
     note?: string
-    service_id?: number
+    service_id: number
+    captcha_token?: string
   }) => api.post<Booking>('/api/bookings', data),
 
   getByToken: (token: string) =>
