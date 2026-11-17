@@ -1,21 +1,35 @@
 import type { Booking, Slot } from '@/api/booking'
 
-export type BlockKind = 'free' | 'taken' | 'pending' | 'confirmed'
+/**
+ * Stanje jedne ćelije nedeljnog kalendara:
+ * slobodan termin, blokiran termin, rezervacija (čeka potvrdu / potvrđena), zauzet termin
+ * bez vidljive rezervacije, ili vreme kada radnik ne radi (pauza, van radnog vremena).
+ */
+export type CellKind = 'free' | 'blocked' | 'pending' | 'confirmed' | 'taken' | 'off'
 
-/** Jedan blok u nedeljnom kalendaru: slobodan termin, zauzet termin ili rezervacija. */
-export interface WeekBlock {
+export interface GridCell {
+  /** Isti ključ imaju sve ćelije jedne rezervacije, odnosno jednog termina */
   key: string
-  slot: Slot
-  kind: BlockKind
-  /** HH:MM; kod rezervacije je to njeno vreme, a ne vreme termina u kom počinje */
-  start: string
-  end: string
+  /** HH:MM početak ćelije */
+  time: string
+  kind: CellKind
+  /** Prva ćelija rezervacije (u njoj se ispisuje kupac i usluga) */
+  first: boolean
+  slot: Slot | null
   booking: Booking | null
 }
 
-export interface WeekDay {
+export interface GridDay {
   date: string
-  blocks: WeekBlock[]
+  cells: GridCell[]
+}
+
+export interface WeekGrid {
+  /** Početna vremena redova (HH:MM) */
+  times: string[]
+  /** Trajanje jednog reda u minutima */
+  step: number
+  days: GridDay[]
 }
 
 export function toISODate(date: Date): string {
@@ -38,48 +52,79 @@ export function addDays(date: Date, days: number): Date {
   return next
 }
 
-const hhmm = (time: string) => time.slice(0, 5)
+export const toMinutes = (time: string) => {
+  const [h, m] = time.slice(0, 5).split(':').map(Number)
+  return (h ?? 0) * 60 + (m ?? 0)
+}
+
+export const fromMinutes = (minutes: number) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+
+const DEFAULT_STEP = 30
 
 /**
- * Sedam dana od `monday`, svaki sa blokovima po vremenu. Rezervacija koja traje duže od jednog
- * termina je jedan blok: termini koje pokriva se ne prikazuju posebno.
+ * Korak redova: najkraći termin u nedelji (15–60 min), da svaki termin ima bar jedan red.
  */
-export function buildWeek(monday: Date, slots: Slot[], bookings: Booking[], workerId: number | null): WeekDay[] {
-  const active = bookings.filter((b) => b.status === 'pending' || b.status === 'confirmed')
-  const byStartSlot = new Map(active.map((b) => [b.slot_id, b]))
+function stepFor(slots: Slot[]): number {
+  const lengths = slots.map((s) => toMinutes(s.end_time) - toMinutes(s.start_time)).filter((n) => n > 0)
+  if (lengths.length === 0) return DEFAULT_STEP
+  return Math.min(60, Math.max(15, Math.min(...lengths)))
+}
 
-  return Array.from({ length: 7 }, (_, i) => {
-    const date = toISODate(addDays(monday, i))
-    const daySlots = slots
-      .filter((s) => s.date.slice(0, 10) === date && (workerId === null || s.worker_id === workerId))
-      .sort((a, b) => a.start_time.localeCompare(b.start_time))
+/**
+ * Nedeljni kalendar jednog radnika kao mreža: redovi su vremena, kolone dani (pon–ned).
+ * Rezervacija koja traje duže od jednog reda zauzima više ćelija sa istim ključem.
+ */
+export function buildWeekGrid(monday: Date, slots: Slot[], bookings: Booking[], workerId: number | null): WeekGrid {
+  const dates = Array.from({ length: 7 }, (_, i) => toISODate(addDays(monday, i)))
+  const weekSlots = slots.filter(
+    (s) => dates.includes(s.date.slice(0, 10)) && (workerId === null || s.worker_id === workerId),
+  )
+  const active = bookings.filter(
+    (b) =>
+      (b.status === 'pending' || b.status === 'confirmed') &&
+      dates.includes(b.slot.date.slice(0, 10)) &&
+      (workerId === null || b.slot.worker_id === workerId),
+  )
 
-    const covered = (slot: Slot) =>
-      active.some(
-        (b) =>
-          b.slot_id !== slot.id &&
-          b.slot.worker_id === slot.worker_id &&
-          b.slot.date.slice(0, 10) === date &&
-          hhmm(slot.start_time) >= hhmm(b.start_time) &&
-          hhmm(slot.end_time) <= hhmm(b.end_time),
-      )
+  const step = stepFor(weekSlots)
+  if (weekSlots.length === 0) return { times: [], step, days: dates.map((date) => ({ date, cells: [] })) }
 
-    const blocks: WeekBlock[] = daySlots
-      .filter((slot) => !covered(slot))
-      .map((slot) => {
-        const booking = byStartSlot.get(slot.id) ?? null
-        const kind: BlockKind = booking
-          ? booking.status === 'confirmed' ? 'confirmed' : 'pending'
-          : slot.is_available ? 'free' : 'taken'
+  const first = Math.floor(Math.min(...weekSlots.map((s) => toMinutes(s.start_time))) / step) * step
+  const last = Math.max(...weekSlots.map((s) => toMinutes(s.end_time)))
+  const times: string[] = []
+  for (let m = first; m < last; m += step) times.push(fromMinutes(m))
+
+  const days = dates.map((date) => {
+    const daySlots = weekSlots.filter((s) => s.date.slice(0, 10) === date)
+    const dayBookings = active.filter((b) => b.slot.date.slice(0, 10) === date)
+
+    const cells = times.map((time): GridCell => {
+      const t = toMinutes(time)
+      const booking =
+        dayBookings.find((b) => toMinutes(b.start_time) < t + step && toMinutes(b.end_time) > t) ?? null
+      const slot =
+        daySlots.find((s) => toMinutes(s.start_time) <= t && toMinutes(s.end_time) > t) ??
+        (booking ? daySlots.find((s) => s.id === booking.slot_id) ?? null : null)
+
+      if (booking) {
+        const start = toMinutes(booking.start_time)
         return {
-          key: `${slot.id}`,
+          key: `b${booking.id}`,
+          time,
+          kind: booking.status === 'confirmed' ? 'confirmed' : 'pending',
+          first: start >= t && start < t + step,
           slot,
-          kind,
-          start: hhmm(booking ? booking.start_time : slot.start_time),
-          end: hhmm(booking ? booking.end_time : slot.end_time),
           booking,
         }
-      })
-    return { date, blocks }
+      }
+      if (!slot) return { key: `off-${date}-${time}`, time, kind: 'off', first: false, slot: null, booking: null }
+
+      const kind: CellKind = slot.is_blocked ? 'blocked' : slot.is_available ? 'free' : 'taken'
+      return { key: `s${slot.id}`, time, kind, first: toMinutes(slot.start_time) >= t, slot, booking: null }
+    })
+    return { date, cells }
   })
+
+  return { times, step, days }
 }

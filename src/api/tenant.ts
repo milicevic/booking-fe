@@ -1,5 +1,6 @@
 import api from './axios'
 import type { Client } from '@/stores/auth'
+import type { BusinessType } from '@/lib/onboarding'
 
 /** Koje kontakt podatke kupac mora da ostavi pri zakazivanju (podešava vlasnik firme) */
 export type CustomerContact = 'email_or_phone' | 'both' | 'phone' | 'email'
@@ -14,6 +15,12 @@ export interface TenantConfig {
   currency: string
   locale: 'sr' | 'en'
   customer_contact: CustomerContact
+  /** Vrsta delatnosti; po njoj onboarding predlaže usluge */
+  business_type?: BusinessType | null
+  /** Do koliko sati pre početka kupac sme sam da pomeri rezervaciju */
+  reschedule_cutoff_hours?: number
+  /** Ko potvrđuje rezervacije (owner, worker, auto) */
+  confirmation_mode?: 'owner' | 'worker' | 'auto'
   subscription_status: 'trialing' | 'active' | 'expired' | 'canceled' | 'pending_deploy'
   trial_ends_at: string | null
   subscription_ends_at: string | null
@@ -22,7 +29,15 @@ export interface TenantConfig {
 export const tenantApi = {
   getConfig: () => api.get<TenantConfig>('/api/tenant/config'),
 
-  updateBranding: (data: { app_name?: string; primary_color?: string; secondary_color?: string; theme?: string; currency?: string; locale?: string }) =>
+  updateBranding: (data: {
+    app_name?: string
+    primary_color?: string
+    secondary_color?: string
+    theme?: string
+    currency?: string
+    locale?: string
+    business_type?: BusinessType
+  }) =>
     api.patch<{ app_name: string; primary_color: string; secondary_color: string; theme: string; logo_url: string | null }>('/api/client/branding', data),
 
   uploadLogo: (file: File) => {
@@ -39,9 +54,10 @@ export const tenantApi = {
   previewSubdomain: (appName: string) =>
     api.get<{ subdomain: string }>('/api/register/subdomain-preview', { params: { app_name: appName } }),
 
-  acceptInvite: (token: string, data: { name: string; password: string }) =>
-    api.post<{ token: string; client: Client }>(`/api/invite/${token}/accept`, data),
+  // Radnik postavlja lozinku preko pozivnice iz mejla; ime mu je već upisao vlasnik
+  acceptInvite: (token: string, password: string) =>
+    api.post<{ token: string; user: Client }>('/api/auth/accept-invite', { invite_token: token, password }),
 
   requestDeploy: (data: { subdomain?: string; custom_domain?: string }) =>
-    api.post<{ message: string }>('/api/deploy/request', data),
+    api.post('/api/client/deploy-request', data),
 }

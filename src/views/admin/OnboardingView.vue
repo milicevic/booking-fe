@@ -26,7 +26,8 @@ const { state, run } = useOnboardingSubmit()
 
 const step = ref(1)
 const name = ref(tenant.config?.app_name ?? '')
-const type = ref<BusinessType>('salon')
+// Delatnost se čuva na tenantu, pa se ponovni ulazak u onboarding nastavlja od nje
+const type = ref<BusinessType>(tenant.config?.business_type ?? 'salon')
 const color = ref(tenant.config?.primary_color ?? '#4f46e5')
 const autoConfirm = ref(false)
 const workers = ref<WorkerDraft[]>([])
@@ -41,6 +42,14 @@ function presetServices(businessType: BusinessType): ServiceDraft[] {
 const services = ref<ServiceDraft[]>(presetServices(type.value))
 
 watch(type, (value) => (services.value = presetServices(value)))
+
+// Config firme stiže asinhrono; sačuvana delatnost se preuzima dok je korisnik još na prvom koraku
+watch(
+  () => tenant.config?.business_type,
+  (saved) => {
+    if (saved && step.value === 1) type.value = saved
+  },
+)
 
 // Uklonjena usluga ne sme da ostane dodeljena radniku
 watch(services, (list) => {
@@ -72,14 +81,17 @@ const blockMessage = computed(() => {
   }
 })
 
-function submit() {
-  return run({
+async function submit() {
+  await run({
     appName: name.value.trim(),
+    businessType: type.value,
     color: color.value,
     autoConfirm: autoConfirm.value,
     services: services.value,
     workers: workers.value,
   })
+  // Vlasnik sa onboarding_completed_at: baner i preusmeravanje na kontrolnoj tabli nestaju
+  if (state.client) auth.client = state.client
 }
 
 function next() {

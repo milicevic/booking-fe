@@ -33,19 +33,34 @@ function isUpcoming(booking: Booking): boolean {
   return ['pending', 'confirmed'].includes(booking.status) && end.getTime() > Date.now()
 }
 
+/** Prošle i otkazane rezervacije ostaju u istoriji još ovoliko dana posle termina. */
+export const HISTORY_DAYS = 60
+
+function isRecent(booking: Booking): boolean {
+  const day = new Date(`${booking.slot.date.slice(0, 10)}T00:00:00`)
+  return Date.now() - day.getTime() < HISTORY_DAYS * 86400000
+}
+
+export interface MyBookings {
+  upcoming: Booking[]
+  /** Prošle, otkazane i odbijene iz poslednjih HISTORY_DAYS dana, najnovije prve */
+  history: Booking[]
+}
+
 /**
- * Aktivne predstojeće rezervacije. Iz pregledača se brišu samo prošle, otkazane i one koje
- * server ne prepoznaje (404); kod greške mreže ili servera token ostaje za sledeći put.
+ * Rezervacije iz ovog pregledača: predstojeće i skorašnja istorija. Iz pregledača se brišu
+ * starije od HISTORY_DAYS dana i one koje server ne prepoznaje (404); kod greške mreže ili
+ * servera token ostaje za sledeći put.
  */
-export async function loadMyBookings(): Promise<Booking[]> {
+export async function loadMyBookingsWithHistory(): Promise<MyBookings> {
   const tokens = readTokens()
-  if (tokens.length === 0) return []
+  if (tokens.length === 0) return { upcoming: [], history: [] }
 
   const results = await Promise.all(
     tokens.map(async (token): Promise<{ token: string; booking: Booking | null; keep: boolean }> => {
       try {
         const { data } = await bookingApi.getByToken(token)
-        return { token, booking: data, keep: isUpcoming(data) }
+        return { token, booking: data, keep: isUpcoming(data) || isRecent(data) }
       } catch (e) {
         return { token, booking: null, keep: !(isAxiosError(e) && e.response?.status === 404) }
       }
@@ -54,8 +69,18 @@ export async function loadMyBookings(): Promise<Booking[]> {
 
   writeTokens(results.filter((result) => result.keep).map((result) => result.token))
 
-  return results
+  const known = results
     .filter((result): result is { token: string; booking: Booking; keep: boolean } => !!result.booking && result.keep)
     .map((result) => result.booking)
-    .sort((a, b) => a.slot.date.localeCompare(b.slot.date) || a.start_time.localeCompare(b.start_time))
+  const byTime = (a: Booking, b: Booking) => a.slot.date.localeCompare(b.slot.date) || a.start_time.localeCompare(b.start_time)
+
+  return {
+    upcoming: known.filter(isUpcoming).sort(byTime),
+    history: known.filter((b) => !isUpcoming(b)).sort((a, b) => byTime(b, a)),
+  }
+}
+
+/** Samo aktivne predstojeće rezervacije. */
+export async function loadMyBookings(): Promise<Booking[]> {
+  return (await loadMyBookingsWithHistory()).upcoming
 }

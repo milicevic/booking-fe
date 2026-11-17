@@ -13,6 +13,9 @@ export interface Booking {
   end_time: string
   slot: Slot
   service?: Service | null
+  /** Samo na javnom prikazu (po tokenu): da li kupac sada sme sam da pomeri rezervaciju */
+  can_reschedule?: boolean
+  reschedule_cutoff_hours?: number
 }
 
 export interface Service {
@@ -29,6 +32,8 @@ export interface Slot {
   start_time: string
   end_time: string
   is_available: boolean
+  /** Blokiran termin ostaje u kalendaru, ali ga kupci ne vide */
+  is_blocked?: boolean
   worker: Worker
 }
 
@@ -66,6 +71,10 @@ export const bookingApi = {
 
   cancel: (token: string) =>
     api.patch(`/api/bookings/${token}/cancel`),
+
+  // Kupac bira jedno od ponuđenih vremena; van režima 'auto' rezervacija ponovo čeka potvrdu
+  reschedule: (token: string, data: { slot_id: number; start_time: string }) =>
+    api.patch<Booking>(`/api/bookings/${token}/customer-reschedule`, data),
 
   registerPushSubscription: (token: string, data: {
     endpoint: string

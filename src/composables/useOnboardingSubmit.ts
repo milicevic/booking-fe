@@ -1,63 +1,48 @@
 import { reactive } from 'vue'
-import { isAxiosError } from 'axios'
 import { adminApi } from '@/api/admin'
 import { servicesApi } from '@/api/services'
 import { tenantApi } from '@/api/tenant'
-import { scheduleCandidates } from '@/lib/onboarding'
-import type { ServiceDraft, WorkerDraft } from '@/lib/onboarding'
+import type { Client } from '@/stores/auth'
+import type { BusinessType, ServiceDraft, WorkerDraft } from '@/lib/onboarding'
 
 export interface OnboardingInput {
   appName: string
+  businessType: BusinessType
   color: string
   autoConfirm: boolean
   services: ServiceDraft[]
   workers: WorkerDraft[]
 }
 
-const SLOT_CONCURRENCY = 5
-
-/** Pokreće `fn` nad listom, najviše `limit` poziva istovremeno; prva greška prekida ostale. */
-async function pool<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {
-  const queue = [...items]
-  let failure: unknown = null
-  const run = async () => {
-    for (let item = queue.shift(); item !== undefined && failure === null; item = queue.shift()) {
-      try {
-        await fn(item)
-      } catch (e) {
-        failure = e
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, run))
-  if (failure !== null) throw failure
-}
-
 /**
- * Pravi sve što je korisnik složio u onboardingu: izgled, usluge, radnike, dodelu usluga i termine.
- * Već napravljeno se pamti, pa ponovni pokušaj posle greške ne duplira ništa.
+ * Pravi sve što je korisnik složio u onboardingu: izgled, usluge, radnike, dodelu usluga i stalni raspored
+ * svakog radnika (backend iz njega odmah pravi termine i drži ih 4 nedelje unapred). Na kraju označava
+ * onboarding završenim. Već napravljeno se pamti, pa ponovni pokušaj posle greške ne duplira ništa.
  */
 export function useOnboardingSubmit() {
   const state = reactive({
     phase: 'idle' as 'idle' | 'saving' | 'done' | 'error',
     stage: 'services' as 'services' | 'workers' | 'slots',
+    /** Radnici kojima je raspored sačuvan / ukupno radnika sa radnim danima */
     slotsDone: 0,
     slotsTotal: 0,
+    /** Vlasnik posle završetka (sa onboarding_completed_at), za auth store */
+    client: null as Client | null,
   })
 
   let settingsSaved = false
   const serviceIds = new Map<string, number>()
   const workerIds = new Map<string, number>()
   const assigned = new Set<string>()
-  const createdSlots = new Set<string>()
+  const scheduled = new Set<string>()
 
   async function run(input: OnboardingInput) {
     state.phase = 'saving'
     state.stage = 'services'
     try {
       if (!settingsSaved) {
-        await tenantApi.updateBranding({ app_name: input.appName, primary_color: input.color })
-        await adminApi.updateSettings({ auto_confirm_bookings: input.autoConfirm })
+        await tenantApi.updateBranding({ app_name: input.appName, primary_color: input.color, business_type: input.businessType })
+        await adminApi.updateSettings({ confirmation_mode: input.autoConfirm ? 'auto' : 'owner' })
         settingsSaved = true
       }
 
@@ -86,27 +71,26 @@ export function useOnboardingSubmit() {
       }
 
       state.stage = 'slots'
-      const tasks = input.workers.flatMap((worker) =>
-        scheduleCandidates(worker.schedule).map((slot) => ({ workerId: workerIds.get(worker.id)!, slot })),
-      )
-      state.slotsTotal = tasks.length
-      state.slotsDone = tasks.filter((t) => createdSlots.has(`${t.workerId}|${t.slot.date}|${t.slot.start}`)).length
+      const withSchedule = input.workers.filter((w) => w.schedule.weekdays.length > 0)
+      state.slotsTotal = withSchedule.length
+      state.slotsDone = withSchedule.filter((w) => scheduled.has(w.id)).length
 
-      await pool(
-        tasks.filter((t) => !createdSlots.has(`${t.workerId}|${t.slot.date}|${t.slot.start}`)),
-        SLOT_CONCURRENCY,
-        async ({ workerId, slot }) => {
-          try {
-            await adminApi.createSlot({ worker_id: workerId, date: slot.date, start_time: slot.start, end_time: slot.end })
-          } catch (e) {
-            // 422: termin već postoji (npr. posle prekinutog pokušaja), računamo ga kao gotov
-            if (!(isAxiosError(e) && e.response?.status === 422)) throw e
-          }
-          createdSlots.add(`${workerId}|${slot.date}|${slot.start}`)
-          state.slotsDone++
-        },
-      )
+      for (const worker of withSchedule) {
+        if (scheduled.has(worker.id)) continue
+        const { schedule } = worker
+        await adminApi.saveWorkerSchedule(workerIds.get(worker.id)!, {
+          weekdays: schedule.weekdays,
+          start: schedule.workStart,
+          end: schedule.workEnd,
+          slot_duration: schedule.slotDuration,
+          breaks: schedule.breaks.filter((br) => br.start && br.end && br.end > br.start),
+        })
+        scheduled.add(worker.id)
+        state.slotsDone++
+      }
 
+      const { data } = await adminApi.updateSettings({ onboarding_completed: true })
+      state.client = data
       state.phase = 'done'
     } catch {
       state.phase = 'error'

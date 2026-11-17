@@ -46,8 +46,8 @@ Before calling a task done: `npm run type-check && npm run lint && npm run test:
 - Keep components small; split anything that grows past about 200 lines.
 - Add or update a test in `src/__tests__/` when changing a store, API module, composable or lib helper.
 
-## Landing page ("Termin")
-`LandingView.vue` and `assets/landing` come from the Figma design. Some of its content (pricing tiers, online payments, reporting) isn't backed by the API. Don't build functionality for it unless asked.
+## Design ("Termin")
+The UI follows the Claude Design canvas "Design" (landing, auth, booking, my bookings, owner dashboard, calendar, onboarding): system font, gray-50 page, white cards with a gray-100 border, uppercase section labels, status colors amber (pending) / green (confirmed) / gray (cancelled). `LandingView.vue` comes from that design; some of its content (pricing) isn't backed by the API. Don't build functionality for it unless asked.
 
 ## Don'ts
 - Don't push to `main` or add dependencies without asking.

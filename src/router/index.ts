@@ -19,6 +19,11 @@ const router = createRouter({
       component: () => import('@/views/booking/ConfirmationView.vue'),
     },
     {
+      path: '/my-bookings',
+      name: 'my-bookings',
+      component: () => import('@/views/booking/MyBookingsView.vue'),
+    },
+    {
       path: '/manage/:token',
       name: 'manage',
       component: () => import('@/views/booking/ManageView.vue'),

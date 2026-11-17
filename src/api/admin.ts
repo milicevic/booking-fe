@@ -1,6 +1,7 @@
 import api from './axios'
 import type { Booking, Slot } from './booking'
 import type { CustomerContact } from './tenant'
+import type { Client } from '@/stores/auth'
 
 export interface WorkerProfile {
   id: number
@@ -35,10 +36,58 @@ export interface UpdateWorkerData {
   can_edit_slots?: boolean
 }
 
+/** Ko potvrđuje nove rezervacije: vlasnik, radnik kod koga je termin, ili niko (automatski) */
+export type ConfirmationMode = 'owner' | 'worker' | 'auto'
+
 export interface ClientProfile {
   id: number
   auto_confirm_bookings: boolean
   customer_contact: CustomerContact
+  confirmation_mode?: ConfirmationMode
+  reschedule_cutoff_hours?: number
+  /** Kada je vlasnik završio onboarding; null = još nije */
+  onboarding_completed_at?: string | null
+}
+
+export interface SettingsData {
+  auto_confirm_bookings?: boolean
+  customer_contact?: CustomerContact
+  confirmation_mode?: ConfirmationMode
+  reschedule_cutoff_hours?: number
+  /** true postavlja onboarding_completed_at, false ga briše */
+  onboarding_completed?: boolean
+}
+
+/** Radno vreme koje se ponavlja svake nedelje (1 = ponedeljak … 7 = nedelja) */
+export interface WorkingHours {
+  weekdays: number[]
+  start: string
+  end: string
+  slot_duration: number
+  breaks: { start: string; end: string }[]
+}
+
+/** Stalni raspored radnika: backend drži termine napravljenim weeks_ahead nedelja unapred */
+export interface WorkerSchedule extends WorkingHours {
+  worker_id: number
+  weeks_ahead: number
+  generated_until: string | null
+  updated_at: string
+}
+
+export interface SavedWorkerSchedule extends WorkerSchedule {
+  generated: { created: number; skipped: number; removed: number }
+}
+
+export interface BulkSlotsData {
+  worker_id: number
+  date_from: string
+  date_to: string
+  weekdays: number[]
+  start: string
+  end: string
+  slot_duration: number
+  breaks: { start: string; end: string }[]
 }
 
 export interface AdminClient {
@@ -69,20 +118,30 @@ export const adminApi = {
   },
   deleteWorkerPhoto: (id: number) => api.delete<Worker>(`/api/workers/${id}/photo`),
 
-  getSlots: (clientId?: number) =>
-    api.get<Slot[]>('/api/slots', { params: clientId ? { client_id: clientId } : undefined }),
+  getWorkerSchedule: (workerId: number) => api.get<WorkerSchedule | null>(`/api/workers/${workerId}/schedule`),
+  saveWorkerSchedule: (workerId: number, data: WorkingHours) =>
+    api.put<SavedWorkerSchedule>(`/api/workers/${workerId}/schedule`, data),
+  deleteWorkerSchedule: (workerId: number) => api.delete(`/api/workers/${workerId}/schedule`),
+
+  getSlots: (clientId?: number, range?: { from: string; to: string }) =>
+    api.get<Slot[]>('/api/slots', { params: { ...(clientId ? { client_id: clientId } : {}), ...range } }),
+  // Blokiran termin ostaje u kalendaru, ali se ne nudi kupcima
+  setSlotBlocked: (id: number, blocked: boolean) => api.patch<Slot>(`/api/slots/${id}`, { is_blocked: blocked }),
+  bulkCreateSlots: (data: BulkSlotsData) => api.post<{ created: number; skipped: number }>('/api/slots/bulk', data),
   createSlot: (data: Partial<Slot>) => api.post<Slot>('/api/slots', data),
   deleteSlot: (id: number) => api.delete(`/api/slots/${id}`),
 
-  getBookings: (clientId?: number) =>
-    api.get<Booking[]>('/api/bookings', { params: clientId ? { client_id: clientId } : undefined }),
+  getBookings: (clientId?: number, range?: { from: string; to: string }) =>
+    api.get<Booking[]>('/api/bookings', { params: { ...(clientId ? { client_id: clientId } : {}), ...range } }),
   cancelBooking: (token: string) => api.patch(`/api/bookings/${token}/cancel`),
-  // Potvrda i odbijanje: samo vlasnik firme (BookingPolicy)
+  // Potvrda i odbijanje: vlasnik, a u režimu 'worker' i radnik kod koga je termin (BookingPolicy)
   confirmBooking: (token: string) => api.patch(`/api/bookings/${token}/confirm`),
   rejectBooking: (token: string) => api.patch(`/api/bookings/${token}/reject`),
+  rescheduleBooking: (token: string, data: { slot_id: number; start_time: string }) =>
+    api.patch<Booking>(`/api/bookings/${token}/reschedule`, data),
 
-  updateSettings: (data: { auto_confirm_bookings?: boolean; customer_contact?: CustomerContact }) =>
-    api.patch('/api/client/settings', data),
+  updateSettings: (data: SettingsData) =>
+    api.patch<Client>('/api/client/settings', data),
 
   getClients: () => api.get<AdminClient[]>('/api/admin/clients'),
   suspendClient: (id: number) => api.patch<AdminClient>(`/api/admin/clients/${id}/suspend`),

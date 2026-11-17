@@ -8,14 +8,14 @@ import type { BookableTime, Slot, Service } from '@/api/booking'
 import type { CustomerContact } from '@/api/tenant'
 import { useTenantStore } from '@/stores/tenant'
 import { useToast } from '@/composables/useToast'
-import TenantLogo from '@/components/TenantLogo.vue'
-import MyBookings from '@/components/booking/MyBookings.vue'
+import PublicHeader from '@/components/booking/PublicHeader.vue'
+import BookingStep from '@/components/booking/BookingStep.vue'
+import BookingSummary from '@/components/booking/BookingSummary.vue'
 import WorkerAvatar from '@/components/WorkerAvatar.vue'
 import TurnstileWidget from '@/components/TurnstileWidget.vue'
 import { captchaEnabled } from '@/lib/captcha'
 import { ChevronLeftIcon, ChevronRightIcon } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -256,6 +256,14 @@ function resetTime() {
   selectedSlot.value = null
 }
 
+// Izgled dugmeta za izbor (usluga, radnik, vreme) iz dizajna
+function optionClass(selected: boolean) {
+  return [
+    'border transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-40',
+    selected ? 'border-primary bg-accent text-foreground' : 'border-gray-200 bg-card text-foreground enabled:hover:border-gray-400',
+  ]
+}
+
 function formatDate(date: string) {
   return new Date(date.slice(0, 10) + 'T00:00:00').toLocaleDateString(jsLocale.value, {
     weekday: 'long', day: 'numeric', month: 'long',
@@ -335,310 +343,249 @@ async function handleSubmit() {
 
 <template>
   <div class="min-h-screen bg-gray-50">
-    <div class="max-w-6xl mx-auto px-4 py-8">
+    <PublicHeader>
+      <router-link :to="{ name: 'my-bookings' }" class="text-sm font-medium text-primary hover:underline">{{ t('myBookings.title') }}</router-link>
+    </PublicHeader>
 
-      <div class="mb-6">
-        <div class="flex items-center gap-3 mb-2">
-          <TenantLogo :src="tenant.logoUrl" :size="32" />
-          <span class="font-semibold text-lg">{{ tenant.appName }}</span>
-        </div>
-        <h1 class="text-2xl font-semibold">{{ t('booking.title') }}</h1>
+    <main class="mx-auto flex max-w-5xl flex-col gap-8 px-4 pt-10 pb-20 sm:px-6">
+      <div class="flex flex-col gap-2">
+        <h1 class="text-[28px] leading-tight font-semibold sm:text-[32px]">{{ t('booking.title') }}</h1>
+        <p class="text-gray-600">{{ t('booking.subtitle') }}</p>
       </div>
 
-      <MyBookings />
 
-      <div v-if="loading" class="text-center py-16 text-muted-foreground">
+      <div v-if="loading" class="py-16 text-center text-muted-foreground">
         {{ t('common.loading') }}
       </div>
 
-      <div v-else-if="error && allSlots.length === 0" class="text-center py-8 text-destructive text-sm">
+      <div v-else-if="error && allSlots.length === 0" class="py-8 text-center text-sm text-destructive">
         {{ error }}
       </div>
 
-      <div v-else-if="allSlots.length === 0" class="text-center py-8 text-muted-foreground text-sm">
+      <div v-else-if="allSlots.length === 0" class="py-8 text-center text-sm text-muted-foreground">
         {{ t('booking.noSlots') }}
       </div>
 
-      <div v-else-if="services.length === 0" class="text-center py-8 text-muted-foreground text-sm" data-testid="no-services">
+      <div v-else-if="services.length === 0" class="py-8 text-center text-sm text-muted-foreground" data-testid="no-services">
         {{ t('booking.noServices') }}
       </div>
 
-      <div v-else>
+      <div v-else class="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div class="flex min-w-0 flex-col gap-5">
 
-        <div class="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
-
-          <!-- Cenovnik i radnici; izbor jednog ili oba određuje termine na kalendaru -->
-          <aside class="space-y-6">
-            <div v-if="services.length > 0">
-              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">{{ t('booking.priceList') }}</p>
-              <div class="space-y-2">
-                <Button
-                  v-for="entry in services"
-                  :key="entry.service.id"
-                  variant="outline"
-                  data-testid="service-option"
-                  :disabled="!serviceAvailable(entry.service.id)"
-                  :aria-pressed="selectedService?.id === entry.service.id"
-                  :class="[
-                    'h-auto w-full flex-col items-stretch gap-1 rounded-xl px-4 py-3 text-left whitespace-normal shadow-none disabled:opacity-40',
-                    selectedService?.id === entry.service.id ? 'border-primary bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground' : 'bg-card',
-                  ]"
-                  @click="pickService(entry.service)"
-                >
-                  <span class="flex items-baseline justify-between gap-3">
-                    <span class="text-sm font-medium">{{ entry.service.name }}</span>
-                    <span v-if="entry.service.price" class="text-sm font-semibold shrink-0">
-                      {{ formatPrice(entry.service.price, locale, tenant.config?.currency) }}
-                    </span>
-                  </span>
-                  <span class="text-xs font-normal opacity-70">
+          <!-- 1. Usluga -->
+          <BookingStep :title="`1. ${t('booking.priceList')}`">
+            <div class="flex flex-col gap-2">
+              <button
+                v-for="entry in services"
+                :key="entry.service.id"
+                type="button"
+                data-testid="service-option"
+                :disabled="!serviceAvailable(entry.service.id)"
+                :aria-pressed="selectedService?.id === entry.service.id"
+                :class="[optionClass(selectedService?.id === entry.service.id), 'flex w-full items-center justify-between gap-4 rounded-xl px-4 py-3 text-left']"
+                @click="pickService(entry.service)"
+              >
+                <span class="flex min-w-0 flex-col">
+                  <span class="text-[15px] font-medium">{{ entry.service.name }}</span>
+                  <span class="text-[13px] text-gray-600">
                     {{ entry.service.duration_minutes }} min · {{ entry.workers.map((w) => w.name).join(', ') }}
                   </span>
-                </Button>
-              </div>
+                </span>
+                <span v-if="entry.service.price" class="shrink-0 text-sm font-semibold">
+                  {{ formatPrice(entry.service.price, locale, tenant.config?.currency) }}
+                </span>
+              </button>
             </div>
+          </BookingStep>
 
-            <div>
-              <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">{{ t('booking.workersTitle') }}</p>
-              <div class="space-y-2" data-testid="worker-list">
-                <Button
-                  v-for="w in workers"
-                  :key="w.id"
-                  variant="outline"
-                  data-testid="worker-option"
-                  :disabled="!workerAvailable(w)"
-                  :aria-pressed="selectedWorkerId === w.id"
-                  :class="[
-                    'h-auto w-full justify-start gap-3 rounded-xl px-3 py-2.5 text-left whitespace-normal shadow-none disabled:opacity-40',
-                    selectedWorkerId === w.id ? 'border-primary bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground' : 'bg-card',
-                  ]"
-                  @click="pickWorker(w.id)"
-                >
-                  <WorkerAvatar :photo-url="w.photo_url" :size="12" />
-                  <span class="flex min-w-0 flex-col items-start">
-                    <span class="text-sm font-medium">{{ w.name }}</span>
-                    <span v-if="w.bio" class="text-xs font-normal opacity-70 line-clamp-2">{{ w.bio }}</span>
-                  </span>
-                </Button>
-              </div>
+          <!-- 2. Radnik -->
+          <BookingStep :title="`2. ${t('booking.workersTitle')}`">
+            <div class="flex flex-wrap gap-2" data-testid="worker-list">
+              <button
+                v-for="w in workers"
+                :key="w.id"
+                type="button"
+                data-testid="worker-option"
+                :disabled="!workerAvailable(w)"
+                :aria-pressed="selectedWorkerId === w.id"
+                :class="[optionClass(selectedWorkerId === w.id), 'flex max-w-full items-center gap-3 rounded-xl py-2.5 pr-4 pl-3 text-left']"
+                @click="pickWorker(w.id)"
+              >
+                <WorkerAvatar :photo-url="w.photo_url" :size="12" />
+                <span class="flex min-w-0 flex-col">
+                  <span class="text-[15px] font-medium">{{ w.name }}</span>
+                  <span v-if="w.bio" class="line-clamp-2 text-[13px] text-gray-600">{{ w.bio }}</span>
+                </span>
+              </button>
             </div>
-          </aside>
+          </BookingStep>
 
-          <section class="min-w-0">
-            <!-- Radnik i usluga još nisu oba izabrani -->
-            <Card v-if="!readyForTimes" data-testid="missing-choice">
-              <CardContent class="py-2 text-center text-muted-foreground">
-                <p class="text-2xl mb-2">✂️</p>
-                <p class="text-sm">{{ missingChoice }}</p>
-              </CardContent>
-            </Card>
+          <!-- 3. Datum i vreme -->
+          <BookingStep :title="`3. ${t('booking.dateTime')}`">
+            <p v-if="!readyForTimes" class="text-sm text-gray-600" data-testid="missing-choice">{{ missingChoice }}</p>
 
-            <template v-else>
-              <div class="flex flex-col xl:flex-row gap-6">
-                <!-- Calendar -->
-                <div class="w-full max-w-sm xl:w-80 shrink-0">
-                  <Card size="sm">
-                    <CardContent>
-                      <div class="flex items-center justify-between mb-4">
-                        <Button variant="ghost" size="icon-sm" class="text-muted-foreground" :aria-label="t('common.prevMonth')" @click="prevMonth">
-                          <ChevronLeftIcon />
-                        </Button>
-                        <span class="text-sm font-medium capitalize">{{ monthLabel }}</span>
-                        <Button variant="ghost" size="icon-sm" class="text-muted-foreground" :aria-label="t('common.nextMonth')" @click="nextMonth">
-                          <ChevronRightIcon />
-                        </Button>
-                      </div>
-
-                      <div class="grid grid-cols-7 mb-1">
-                        <div v-for="d in calDays" :key="d"
-                          class="text-center text-xs text-muted-foreground py-1">{{ d }}</div>
-                      </div>
-
-                      <div class="grid grid-cols-7 gap-0.5">
-                        <div v-for="(day, i) in calendarDays" :key="i">
-                          <div v-if="!day" class="h-9" />
-                          <Button
-                            v-else
-                            :variant="selectedDate === day.date ? 'default' : 'ghost'"
-                            size="sm"
-                            :disabled="day.past || !day.available"
-                            :aria-pressed="selectedDate === day.date"
-                            :class="[
-                              'w-full h-9 text-xs',
-                              day.past || !day.available
-                                ? 'text-muted-foreground/40 disabled:opacity-100'
-                                : selectedDate !== day.date && 'bg-accent text-accent-foreground hover:bg-primary/15',
-                            ]"
-                            @click="pickDate(day)"
-                          >
-                            {{ day.day }}
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div class="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
-                        <span class="flex items-center gap-1">
-                          <span class="w-3 h-3 rounded bg-accent inline-block" /> {{ t('booking.available') }}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
+            <div v-else class="flex flex-col gap-6 md:flex-row">
+              <!-- Kalendar -->
+              <div class="w-full max-w-sm shrink-0 md:w-72">
+                <div class="mb-3 flex items-center justify-between">
+                  <Button variant="ghost" size="icon-sm" class="text-muted-foreground" :aria-label="t('common.prevMonth')" @click="prevMonth">
+                    <ChevronLeftIcon />
+                  </Button>
+                  <span class="text-sm font-medium capitalize">{{ monthLabel }}</span>
+                  <Button variant="ghost" size="icon-sm" class="text-muted-foreground" :aria-label="t('common.nextMonth')" @click="nextMonth">
+                    <ChevronRightIcon />
+                  </Button>
                 </div>
-
-                <!-- Right column -->
-                <div class="flex-1">
-
-                  <!-- No date selected -->
-                  <Card v-if="!selectedDate">
-                    <CardContent class="py-2 text-center text-muted-foreground">
-                      <p class="text-2xl mb-2">📅</p>
-                      <p class="text-sm">{{ t('booking.selectDate') }}</p>
-                    </CardContent>
-                  </Card>
-
-                  <!-- Izabran dan: bira se vreme -->
-                  <div v-else-if="!selectedTime">
-                    <div class="flex items-center gap-2 mb-4">
-                      <Button variant="link" size="xs" class="px-0 text-muted-foreground" @click="selectedDate = null">
-                        {{ t('booking.backCalendar') }}
-                      </Button>
-                      <span class="text-muted-foreground/50">·</span>
-                      <p class="text-sm font-medium capitalize">
-                        {{ formatDate(selectedDate) }}
-                      </p>
-                    </div>
-
-                    <Card v-if="timesForDate.length === 0">
-                      <CardContent class="py-2 text-center text-muted-foreground text-sm">
-                        {{ t('booking.noSlotsDay') }}
-                      </CardContent>
-                    </Card>
-
-                    <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      <Button
-                        v-for="choice in timesForDate"
-                        :key="choice.start_time"
-                        variant="outline"
-                        data-testid="time-option"
-                        class="h-auto flex-col items-start gap-0.5 rounded-xl bg-card p-4 shadow-none hover:border-primary/60 hover:bg-card hover:shadow-sm"
-                        @click="pickTime(choice)"
-                      >
-                        <span>{{ choice.start_time.slice(0, 5) }} — {{ choice.end_time.slice(0, 5) }}</span>
-                        <span v-if="!selectedWorker" class="text-xs font-normal text-muted-foreground">
-                          {{ t('booking.freeWorkers', choice.options.length) }}
-                        </span>
-                      </Button>
-                    </div>
-                  </div>
-
-                  <!-- Izabrano vreme bez radnika: bira se jedan od radnika slobodnih u to vreme -->
-                  <div v-else-if="!selectedSlot" data-testid="time-workers">
-                    <div class="flex items-center gap-2 mb-4">
-                      <Button variant="link" size="xs" class="px-0 text-muted-foreground" @click="resetTime">
-                        {{ t('booking.backToTimes') }}
-                      </Button>
-                      <span class="text-muted-foreground/50">·</span>
-                      <p class="text-sm font-medium capitalize">
-                        {{ formatDate(selectedTime.date) }}, {{ selectedTime.start_time.slice(0, 5) }}
-                      </p>
-                    </div>
-                    <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">{{ t('booking.pickFreeWorker') }}</p>
-                    <div class="grid gap-2 sm:grid-cols-2">
-                      <Button
-                        v-for="option in selectedTime.options"
-                        :key="option.worker_id"
-                        variant="outline"
-                        class="h-auto justify-start gap-3 rounded-xl bg-card px-3 py-2.5 text-left whitespace-normal shadow-none hover:border-primary/60 hover:bg-card"
-                        @click="pickTimeWorker(option)"
-                      >
-                        <WorkerAvatar :photo-url="workerById(option.worker_id)?.photo_url" :size="12" />
-                        <span class="flex min-w-0 flex-col items-start">
-                          <span class="text-sm font-medium">{{ workerName(option.worker_id) }}</span>
-                          <span v-if="workerById(option.worker_id)?.bio" class="text-xs font-normal opacity-70 line-clamp-2">
-                            {{ workerById(option.worker_id)?.bio }}
-                          </span>
-                        </span>
-                      </Button>
-                    </div>
-                  </div>
-
-                  <!-- Slot selected: form -->
-                  <div v-else>
-                    <div class="bg-accent text-accent-foreground rounded-xl p-4 mb-5 flex items-start justify-between">
-                      <div>
-                        <p class="text-sm font-medium">
-                          {{ workerName(selectedSlot.worker_id) }}
-                          <span v-if="selectedService" class="font-normal opacity-80"> · {{ selectedService.name }}<template v-if="selectedService.price"> ({{ formatPrice(selectedService.price, locale, tenant.config?.currency) }})</template></span>
-                        </p>
-                        <p class="text-sm capitalize mt-0.5 opacity-90">
-                          {{ formatDate(selectedSlot.date) }}
-                        </p>
-                        <p class="text-sm opacity-90">
-                          {{ selectedSlot.start_time.slice(0, 5) }} — {{ selectedSlot.end_time.slice(0, 5) }}
-                        </p>
-                      </div>
-                      <Button variant="link" size="xs" class="px-0" @click="resetTime">
-                        {{ t('booking.change') }}
-                      </Button>
-                    </div>
-
-                    <Card>
-                      <CardContent>
-                        <h2 class="text-sm font-semibold mb-4">{{ t('booking.yourDetails') }}</h2>
-
-                        <form @submit.prevent="handleSubmit" class="space-y-4">
-                          <div class="grid gap-1.5">
-                            <Label for="booking-name">
-                              {{ t('booking.fullName') }} <span class="text-destructive">*</span>
-                            </Label>
-                            <Input id="booking-name" v-model="form.customer_name" type="text" :placeholder="t('booking.fullNamePlaceholder')" />
-                          </div>
-
-                          <div class="grid gap-1.5">
-                            <Label for="booking-email">
-                              {{ t('booking.email') }}
-                              <span v-if="emailRequired" class="text-destructive">*</span>
-                              <span v-else-if="contactRule === 'email_or_phone'" class="font-normal opacity-80">{{ t('booking.orPhone') }}</span>
-                              <span v-else class="font-normal opacity-80">({{ t('common.optional') }})</span>
-                            </Label>
-                            <Input id="booking-email" v-model="form.customer_email" type="email" placeholder="vas@email.com" />
-                          </div>
-
-                          <div class="grid gap-1.5">
-                            <Label for="booking-phone">
-                              {{ t('booking.phone') }}
-                              <span v-if="phoneRequired" class="text-destructive">*</span>
-                              <span v-else-if="contactRule === 'email_or_phone'" class="font-normal opacity-80">{{ t('booking.orEmail') }}</span>
-                              <span v-else class="font-normal opacity-80">({{ t('common.optional') }})</span>
-                            </Label>
-                            <Input id="booking-phone" v-model="form.customer_phone" type="tel" placeholder="+381 60 123 4567" />
-                          </div>
-
-                          <div class="grid gap-1.5">
-                            <Label for="booking-note">
-                              {{ t('booking.note') }} <span class="font-normal opacity-80">({{ t('common.optional') }})</span>
-                            </Label>
-                            <Textarea id="booking-note" v-model="form.note" rows="3" :placeholder="t('booking.notePlaceholder')" class="resize-none field-sizing-fixed" />
-                          </div>
-
-                          <p v-if="error" class="text-destructive text-sm">{{ error }}</p>
-
-                          <TurnstileWidget ref="captcha" v-model="captchaToken" />
-
-                          <Button type="submit" size="lg" class="w-full" :disabled="submitting">
-                            {{ submitting ? t('booking.confirming') : t('booking.confirm') }}
-                          </Button>
-                        </form>
-                      </CardContent>
-                    </Card>
+                <div class="mb-1 grid grid-cols-7">
+                  <div v-for="d in calDays" :key="d" class="py-1 text-center text-xs text-muted-foreground">{{ d }}</div>
+                </div>
+                <div class="grid grid-cols-7 gap-0.5">
+                  <div v-for="(day, i) in calendarDays" :key="i">
+                    <div v-if="!day" class="h-9" />
+                    <Button
+                      v-else
+                      :variant="selectedDate === day.date ? 'default' : 'ghost'"
+                      size="sm"
+                      :disabled="day.past || !day.available"
+                      :aria-pressed="selectedDate === day.date"
+                      :class="[
+                        'h-9 w-full text-xs',
+                        day.past || !day.available
+                          ? 'text-muted-foreground/40 disabled:opacity-100'
+                          : selectedDate !== day.date && 'bg-accent text-accent-foreground hover:bg-primary/15',
+                      ]"
+                      @click="pickDate(day)"
+                    >
+                      {{ day.day }}
+                    </Button>
                   </div>
                 </div>
               </div>
-            </template>
-          </section>
+
+              <!-- Vremena -->
+              <div class="min-w-0 flex-1">
+                <p v-if="!selectedDate" class="text-sm text-gray-600">{{ t('booking.selectDate') }}</p>
+
+                <template v-else-if="!selectedTime">
+                  <p class="mb-3 text-sm font-medium first-letter:uppercase">{{ formatDate(selectedDate) }}</p>
+                  <p v-if="timesForDate.length === 0" class="text-sm text-gray-600">{{ t('booking.noSlotsDay') }}</p>
+                  <div v-else class="flex flex-wrap gap-2">
+                    <button
+                      v-for="choice in timesForDate"
+                      :key="choice.start_time"
+                      type="button"
+                      data-testid="time-option"
+                      :class="[optionClass(false), 'flex flex-col items-start rounded-lg px-3.5 py-2 text-sm']"
+                      @click="pickTime(choice)"
+                    >
+                      <span>{{ choice.start_time.slice(0, 5) }} — {{ choice.end_time.slice(0, 5) }}</span>
+                      <span v-if="!selectedWorker" class="text-xs text-gray-600">
+                        {{ t('booking.freeWorkers', choice.options.length) }}
+                      </span>
+                    </button>
+                  </div>
+                </template>
+
+                <!-- Izabrano vreme bez radnika: bira se jedan od radnika slobodnih u to vreme -->
+                <div v-else-if="!selectedSlot" data-testid="time-workers">
+                  <div class="mb-3 flex items-center gap-2">
+                    <Button variant="link" size="xs" class="px-0 text-muted-foreground" @click="resetTime">
+                      {{ t('booking.backToTimes') }}
+                    </Button>
+                    <span class="text-muted-foreground/50">·</span>
+                    <p class="text-sm font-medium first-letter:uppercase">
+                      {{ formatDate(selectedTime.date) }}, {{ selectedTime.start_time.slice(0, 5) }}
+                    </p>
+                  </div>
+                  <p class="mb-3 text-xs font-semibold uppercase tracking-[.08em] text-gray-600">{{ t('booking.pickFreeWorker') }}</p>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      v-for="option in selectedTime.options"
+                      :key="option.worker_id"
+                      type="button"
+                      :class="[optionClass(false), 'flex items-center gap-3 rounded-xl py-2.5 pr-4 pl-3 text-left']"
+                      @click="pickTimeWorker(option)"
+                    >
+                      <WorkerAvatar :photo-url="workerById(option.worker_id)?.photo_url" :size="12" />
+                      <span class="text-[15px] font-medium">{{ workerName(option.worker_id) }}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Termin je izabran -->
+                <div v-else class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary bg-accent px-4 py-3 text-accent-foreground">
+                  <div>
+                    <p class="text-sm font-semibold first-letter:uppercase">{{ formatDate(selectedSlot.date) }}</p>
+                    <p class="text-sm">{{ selectedSlot.start_time.slice(0, 5) }} — {{ selectedSlot.end_time.slice(0, 5) }} · {{ workerName(selectedSlot.worker_id) }}</p>
+                  </div>
+                  <Button variant="link" size="xs" class="px-0" @click="resetTime">{{ t('booking.change') }}</Button>
+                </div>
+              </div>
+            </div>
+          </BookingStep>
+
+          <!-- 4. Vaši podaci -->
+          <BookingStep v-if="selectedSlot" :title="`4. ${t('booking.yourDetails')}`">
+            <form id="booking-form" class="flex flex-col gap-4" @submit.prevent="handleSubmit">
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div class="grid gap-1.5">
+                  <Label for="booking-name">
+                    {{ t('booking.fullName') }} <span class="text-destructive">*</span>
+                  </Label>
+                  <Input id="booking-name" v-model="form.customer_name" type="text" autocomplete="name" :placeholder="t('booking.fullNamePlaceholder')" />
+                </div>
+
+                <div class="grid gap-1.5">
+                  <Label for="booking-phone">
+                    {{ t('booking.phone') }}
+                    <span v-if="phoneRequired" class="text-destructive">*</span>
+                    <span v-else-if="contactRule === 'email_or_phone'" class="font-normal opacity-80">{{ t('booking.orEmail') }}</span>
+                    <span v-else class="font-normal opacity-80">({{ t('common.optional') }})</span>
+                  </Label>
+                  <Input id="booking-phone" v-model="form.customer_phone" type="tel" autocomplete="tel" placeholder="+381 60 123 4567" />
+                </div>
+              </div>
+
+              <div class="grid gap-1.5">
+                <Label for="booking-email">
+                  {{ t('booking.email') }}
+                  <span v-if="emailRequired" class="text-destructive">*</span>
+                  <span v-else-if="contactRule === 'email_or_phone'" class="font-normal opacity-80">{{ t('booking.orPhone') }}</span>
+                  <span v-else class="font-normal opacity-80">({{ t('common.optional') }})</span>
+                </Label>
+                <Input id="booking-email" v-model="form.customer_email" type="email" autocomplete="email" placeholder="vas@email.com" />
+                <p class="text-[13px] text-gray-600">{{ t('booking.emailHint') }}</p>
+              </div>
+
+              <div class="grid gap-1.5">
+                <Label for="booking-note">
+                  {{ t('booking.note') }} <span class="font-normal opacity-80">({{ t('common.optional') }})</span>
+                </Label>
+                <Textarea id="booking-note" v-model="form.note" rows="3" :placeholder="t('booking.notePlaceholder')" class="field-sizing-fixed resize-y" />
+              </div>
+
+              <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
+
+              <TurnstileWidget ref="captcha" v-model="captchaToken" />
+            </form>
+          </BookingStep>
+
+          <p v-else-if="error" class="text-sm text-destructive">{{ error }}</p>
         </div>
 
+        <BookingSummary
+          form-id="booking-form"
+          :worker="selectedSlot ? workerName(selectedSlot.worker_id) : (selectedWorker?.name ?? '')"
+          :service="selectedService?.name ?? ''"
+          :duration="selectedService ? `${selectedService.duration_minutes} min` : ''"
+          :when="selectedSlot ? `${formatDate(selectedSlot.date)}, ${selectedSlot.start_time.slice(0, 5)}` : ''"
+          :can-submit="!!selectedSlot"
+          :submitting="submitting"
+        />
       </div>
-    </div>
+    </main>
+
+    <footer class="px-6 pb-8 text-center text-[13px] text-gray-600">{{ t('booking.poweredBy') }}</footer>
   </div>
 </template>
