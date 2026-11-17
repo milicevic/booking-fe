@@ -22,7 +22,7 @@ Before calling a task done: `npm run type-check && npm run lint && npm run test:
 ## Structure (`src/`)
 - `api/`: one Axios module per area (`booking`, `slots`, `services`, `tenant`, `admin`, `notifications`); the shared client is `api/axios.ts`. Don't call Axios directly from components.
 - `stores/`: Pinia (`auth`, `tenant`, `adminContext`).
-- `views/`: `booking/` (public), `auth/` (register, invite, Google callback), `admin/` (dashboard for client/worker/superadmin), plus `LandingView.vue`.
+- `views/`: `booking/` (public), `auth/` (register, invite, Google callback), `admin/` (dashboard for client/worker/admin), plus `LandingView.vue`.
 - `components/`: `ui/` is shadcn-vue (add new primitives with the shadcn-vue CLI, don't hand-roll), `admin/`, `auth/`, `booking/`, `brand/` (logo), plus shared ones (`ConfirmModal`, `ToastContainer`, `SubscriptionBanner`, ...).
 - `composables/` (`useToast`, `useConfirm`), `lib/` (helpers: `domain`, `apiError`, `color`, `price`, `googleAuth`, `myBookings`, `utils`), `i18n/` (`en.ts`, `sr.ts`).
 - Tests live in `src/__tests__/` and mirror the `src/` layout.
