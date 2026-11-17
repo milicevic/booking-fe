@@ -80,7 +80,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <AuthLayout :title="t('auth.registerTitle')" :subtitle="t('auth.registerSubtitle')">
+  <AuthLayout :title="t('auth.registerTitle')" :subtitle="t('auth.registerSubtitle')" split>
     <!-- Success -->
     <Card v-if="success">
       <CardContent class="space-y-4 text-center">

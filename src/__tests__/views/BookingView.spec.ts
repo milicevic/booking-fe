@@ -373,7 +373,7 @@ describe('BookingView (end-user booking flow)', () => {
 
   it('asks to confirm the captcha when bot protection is on', async () => {
     vi.stubEnv('VITE_TURNSTILE_SITE_KEY', 'site-key')
-    window.turnstile = { render: vi.fn(() => 'w'), reset: vi.fn(), remove: vi.fn() }
+    window.turnstile = { render: vi.fn<() => string>(() => 'w'), reset: vi.fn<(...args: unknown[]) => unknown>(), remove: vi.fn<(...args: unknown[]) => unknown>() }
     const { wrapper } = await mountView()
     await goToForm(wrapper)
 
@@ -455,27 +455,9 @@ describe('BookingView (end-user booking flow)', () => {
     expect(wrapper.find('form').exists()).toBe(true)
   })
 
-  it('shows the customer their upcoming bookings when they come back', async () => {
-    localStorage.setItem('my-bookings', JSON.stringify(['tok-active', 'tok-cancelled']))
-    const tomorrow = localDate(new Date(Date.now() + 86400000))
-    const base = { slot: { ...slot(2, 1, 'Marko', '09'), date: tomorrow }, start_time: '09:00:00', end_time: '09:40:00', service: haircut }
-    vi.mocked(bookingApi.getByToken).mockImplementation(async (token: string) => ({
-      data: { ...base, token, status: token === 'tok-active' ? 'confirmed' : 'cancelled' },
-    }) as never)
-
+  it('links to the my bookings page from the header', async () => {
     const { wrapper } = await mountView()
-
-    const section = wrapper.find('[data-testid="my-bookings"]')
-    expect(section.text()).toContain('Your bookings')
-    expect(section.text()).toContain('Marko')
-    expect(section.text()).toContain('09:00 — 09:40')
-    expect(section.text()).toContain('Confirmed')
-    expect(section.findAll('a')).toHaveLength(1)
-    expect(JSON.parse(localStorage.getItem('my-bookings') ?? '[]')).toEqual(['tok-active'])
-  })
-
-  it('hides the section when there are no remembered bookings', async () => {
-    const { wrapper } = await mountView()
-    expect(wrapper.find('[data-testid="my-bookings"]').exists()).toBe(false)
+    const link = wrapper.findAll('a').find((a) => a.text() === 'My bookings')
+    expect(link?.attributes('href')).toBe('/my-bookings')
   })
 })

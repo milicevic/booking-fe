@@ -1,99 +1,77 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
-import { useToast } from '@/composables/useToast'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
 import { PencilIcon, XIcon } from '@lucide/vue'
 import WorkerAvatar from '@/components/WorkerAvatar.vue'
 import WorkerProfileEditor from '@/components/admin/WorkerProfileEditor.vue'
-import { Button, buttonVariants } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
-import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { adminApi } from '@/api/admin'
+import { servicesApi } from '@/api/services'
+import type { Service } from '@/api/services'
 import { useAdminContextStore } from '@/stores/adminContext'
 import type { Worker } from '@/api/admin'
 import { apiErrorMessage } from '@/lib/apiError'
-import { cn } from '@/lib/utils'
 
 const { t } = useI18n()
 const { confirm } = useConfirm()
-const toast = useToast()
 const adminContext = useAdminContextStore()
-const workers = ref<Worker[]>([])
-const loading = ref(true)
-const showForm = ref(false)
-const submitting = ref(false)
-const error = ref('')
 
-const form = ref({
-  name: '',
-  email: '',
-  phone: '',
-  bio: '',
-})
+const workers = ref<Worker[]>([])
+const services = ref<Service[]>([])
+const loading = ref(true)
+const submitting = ref(false)
+const savingId = ref<number | null>(null)
+const error = ref('')
+const listError = ref('')
+const invited = ref('')
+const form = ref({ name: '', email: '' })
 
 // Radnik čiji se opis i slika upravo uređuju
 const editingId = ref<number | null>(null)
+
+const canInvite = computed(() => form.value.name.trim() !== '' && /\S+@\S+\.\S+/.test(form.value.email))
+
+function servicesOf(worker: Worker) {
+  const names = services.value.filter((s) => s.workers?.some((w) => w.id === worker.id)).map((s) => s.name)
+  return names.length ? t('workers.servicesList', { list: names.join(', ') }) : t('workers.noServices')
+}
 
 function onWorkerUpdated(updated: Worker) {
   workers.value = workers.value.map((w) => (w.id === updated.id ? { ...w, name: updated.name, worker_profile: updated.worker_profile } : w))
 }
 
-// Slika izabrana u formi za novog radnika; postavlja se odmah posle kreiranja
-const newPhoto = ref<File | null>(null)
-const newPhotoPreview = ref<string | null>(null)
+onMounted(load)
 
-function setNewPhoto(file: File | null) {
-  if (newPhotoPreview.value) URL.revokeObjectURL(newPhotoPreview.value)
-  newPhoto.value = file
-  newPhotoPreview.value = file ? URL.createObjectURL(file) : null
-}
-
-function pickNewPhoto(event: Event) {
-  const input = event.target as HTMLInputElement
-  setNewPhoto(input.files?.[0] ?? null)
-  input.value = ''
-}
-
-onMounted(async () => {
-  await fetchWorkers()
-})
-
-async function fetchWorkers() {
-  loading.value = true
+async function load() {
   try {
-    const { data } = await adminApi.getWorkers(adminContext.selectedClient?.id)
-    workers.value = data
+    const [w, s] = await Promise.all([
+      adminApi.getWorkers(adminContext.selectedClient?.id),
+      servicesApi.getServices().catch(() => ({ data: [] as Service[] })),
+    ])
+    workers.value = w.data
+    services.value = s.data
+  } catch (e) {
+    listError.value = apiErrorMessage(e, t('common.error'))
   } finally {
     loading.value = false
   }
 }
 
-async function handleCreate() {
-  if (!form.value.name) {
-    error.value = t('workers.nameRequired')
-    return
-  }
-
+async function invite() {
+  if (!canInvite.value) return
   submitting.value = true
   error.value = ''
-
+  invited.value = ''
   try {
-    const { data: created } = await adminApi.createWorker(form.value)
-    if (newPhoto.value) {
-      try {
-        await adminApi.uploadWorkerPhoto(created.id, newPhoto.value)
-      } catch (e) {
-        toast.error(apiErrorMessage(e, t('workers.photoError')))
-      }
-    }
-    form.value = { name: '', email: '', phone: '', bio: '' }
-    setNewPhoto(null)
-    showForm.value = false
-    await fetchWorkers()
+    await adminApi.createWorker({ name: form.value.name.trim(), email: form.value.email.trim() })
+    invited.value = t('workers.invited', { email: form.value.email.trim() })
+    form.value = { name: '', email: '' }
+    await load()
   } catch (e) {
     error.value = apiErrorMessage(e, t('workers.addError'))
   } finally {
@@ -101,99 +79,58 @@ async function handleCreate() {
   }
 }
 
+async function toggleCanEdit(worker: Worker, value: boolean) {
+  savingId.value = worker.id
+  listError.value = ''
+  try {
+    const { data } = await adminApi.updateWorker(worker.id, { can_edit_slots: value })
+    workers.value = workers.value.map((w) => (w.id === worker.id ? { ...w, can_edit_slots: data.can_edit_slots } : w))
+  } catch (e) {
+    listError.value = apiErrorMessage(e, t('workers.updateError'))
+  } finally {
+    savingId.value = null
+  }
+}
+
 async function handleDelete(worker: Worker) {
-  if (!await confirm(t('workers.deleteConfirm', { name: worker.name }))) return
+  if (!(await confirm(t('workers.deleteConfirm', { name: worker.name })))) return
   await adminApi.deleteWorker(worker.id)
-  await fetchWorkers()
+  await load()
 }
 </script>
 
 <template>
-  <AdminLayout>
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-xl font-semibold">{{ t('workers.title') }}</h1>
-      <Button @click="showForm = !showForm">{{ t('workers.addBtn') }}</Button>
-    </div>
+  <AdminLayout :title="t('workers.title')">
+    <div class="flex flex-col gap-5">
+      <p v-if="listError" class="text-sm text-destructive" role="alert">{{ listError }}</p>
+      <div v-if="loading" class="text-sm text-muted-foreground">{{ t('common.loading') }}</div>
 
-    <Card v-if="showForm" class="mb-6">
-      <CardContent>
-        <h2 class="text-sm font-medium mb-4">{{ t('workers.formTitle') }}</h2>
-        <div class="space-y-3">
-          <Input
-            v-model="form.name"
-            type="text"
-            :aria-label="t('workers.namePlaceholder')"
-            :placeholder="t('workers.namePlaceholder')"
-          />
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
-              v-model="form.email"
-              type="email"
-              :aria-label="t('workers.emailPlaceholder')"
-              :placeholder="t('workers.emailPlaceholder')"
-              class="min-w-0"
-            />
-            <Input
-              v-model="form.phone"
-              type="tel"
-              :aria-label="t('workers.phonePlaceholder')"
-              :placeholder="t('workers.phonePlaceholder')"
-              class="min-w-0"
-            />
-          </div>
-          <div class="flex items-center gap-3">
-            <WorkerAvatar :photo-url="newPhotoPreview" :size="12" />
-            <label class="cursor-pointer">
-              <span :class="cn(buttonVariants({ variant: 'outline', size: 'sm' }))" data-testid="new-worker-photo">
-                {{ newPhoto ? t('workers.changePhoto') : t('workers.uploadPhoto') }}
-              </span>
-              <input type="file" accept="image/png,image/jpeg,image/webp" class="sr-only" @change="pickNewPhoto" />
-            </label>
-            <span class="text-xs text-muted-foreground">{{ t('workers.photoOptional') }}</span>
-          </div>
-          <Textarea
-            v-model="form.bio"
-            rows="2"
-            maxlength="500"
-            :aria-label="t('workers.bio')"
-            :placeholder="t('workers.bioPlaceholder')"
-            class="resize-none field-sizing-fixed"
-          />
-          <p v-if="error" class="text-destructive text-sm">{{ error }}</p>
-          <div class="flex gap-2 sm:justify-end">
-            <Button class="flex-1 sm:flex-none sm:px-6" :disabled="submitting" @click="handleCreate">
-              {{ submitting ? t('workers.saving') : t('common.save') }}
-            </Button>
-            <Button variant="outline" class="flex-1 sm:flex-none sm:px-6" @click="showForm = false">
-              {{ t('common.cancel') }}
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-
-    <div v-if="loading" class="text-muted-foreground text-sm">{{ t('common.loading') }}</div>
-
-    <div v-else class="space-y-2">
-      <Card v-for="worker in workers" :key="worker.id" size="sm">
-        <CardContent class="space-y-4">
-          <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3 min-w-0">
-              <WorkerAvatar :photo-url="worker.worker_profile?.photo_url" :size="12" />
-              <div class="min-w-0">
-                <p class="text-sm font-medium truncate">{{ worker.name }}</p>
-                <p class="text-xs text-muted-foreground truncate">{{ worker.email ?? worker.worker_profile?.phone ?? '—' }}</p>
-                <p v-if="worker.worker_profile?.bio" class="text-xs text-muted-foreground mt-1 line-clamp-2">
-                  {{ worker.worker_profile.bio }}
-                </p>
-              </div>
+      <div v-else class="flex flex-col gap-3">
+        <article
+          v-for="worker in workers"
+          :key="worker.id"
+          class="flex flex-col gap-4 rounded-xl border border-gray-100 bg-card px-5 py-4"
+        >
+          <div class="flex flex-wrap items-center gap-x-5 gap-y-3">
+            <WorkerAvatar :photo-url="worker.worker_profile?.photo_url" :size="12" />
+            <div class="flex min-w-0 flex-[1_1_200px] flex-col leading-snug">
+              <span class="font-semibold">{{ worker.name }}</span>
+              <span class="text-[13px] break-all text-gray-600">{{ worker.email ?? worker.worker_profile?.phone ?? t('workers.noEmail') }}</span>
+              <span class="text-[13px] text-gray-600">{{ servicesOf(worker) }}</span>
             </div>
-
-            <div class="flex items-center gap-1 shrink-0">
+            <div class="flex flex-none items-center gap-2.5">
+              <Label :for="`can-edit-${worker.id}`" class="font-normal text-gray-700">{{ t('workers.canEditSlots') }}</Label>
+              <Switch
+                :id="`can-edit-${worker.id}`"
+                :model-value="worker.can_edit_slots"
+                :disabled="savingId === worker.id"
+                @update:model-value="toggleCanEdit(worker, $event)"
+              />
+            </div>
+            <div class="flex flex-none items-center gap-1">
               <Button
                 variant="outline"
                 size="sm"
-                class="gap-1.5"
                 :aria-expanded="editingId === worker.id"
                 @click="editingId = editingId === worker.id ? null : worker.id"
               >
@@ -204,7 +141,7 @@ async function handleDelete(worker: Worker) {
                 variant="ghost"
                 size="icon-sm"
                 class="text-muted-foreground hover:text-destructive"
-                :aria-label="t('common.delete')"
+                :aria-label="t('workers.deleteLabel', { name: worker.name })"
                 @click="handleDelete(worker)"
               >
                 <XIcon />
@@ -212,16 +149,35 @@ async function handleDelete(worker: Worker) {
             </div>
           </div>
 
-          <template v-if="editingId === worker.id">
-            <Separator />
+          <div v-if="editingId === worker.id" class="border-t border-gray-100 pt-4">
             <WorkerProfileEditor :worker="worker" can-edit-name @updated="onWorkerUpdated" />
-          </template>
-        </CardContent>
-      </Card>
+          </div>
+        </article>
 
-      <div v-if="workers.length === 0" class="text-center py-8 text-muted-foreground text-sm">
-        {{ t('workers.noWorkers') }}
+        <div v-if="workers.length === 0" class="rounded-xl border border-gray-100 bg-card px-6 py-8 text-center text-sm text-gray-600">
+          {{ t('workers.noWorkers') }}
+        </div>
       </div>
+
+      <section class="flex flex-col gap-3.5 rounded-xl border border-gray-100 bg-card p-5">
+        <h2 class="text-lg font-semibold">{{ t('workers.inviteTitle') }}</h2>
+        <form class="flex flex-wrap items-end gap-3" @submit.prevent="invite">
+          <div class="grid min-w-0 flex-[1_1_180px] gap-1">
+            <Label for="invite-name">{{ t('workers.fullName') }}</Label>
+            <Input id="invite-name" v-model="form.name" type="text" autocomplete="off" />
+          </div>
+          <div class="grid min-w-0 flex-[1_1_220px] gap-1">
+            <Label for="invite-email">{{ t('booking.email') }}</Label>
+            <Input id="invite-email" v-model="form.email" type="email" autocomplete="off" />
+          </div>
+          <Button type="submit" class="min-h-11" :disabled="!canInvite || submitting">
+            {{ submitting ? t('workers.saving') : t('workers.inviteBtn') }}
+          </Button>
+        </form>
+        <p v-if="error" class="text-sm text-destructive" role="alert">{{ error }}</p>
+        <p v-if="invited" class="text-sm font-medium text-green-800" role="status">{{ invited }}</p>
+        <p class="text-[13px] text-gray-600">{{ t('workers.inviteHint') }}</p>
+      </section>
     </div>
   </AdminLayout>
 </template>

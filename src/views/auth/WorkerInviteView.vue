@@ -18,7 +18,6 @@ const auth = useAuthStore()
 const token = route.params.token as string
 
 const form = reactive({
-  name: '',
   password: '',
 })
 
@@ -29,8 +28,8 @@ async function handleSubmit() {
   error.value = ''
   loading.value = true
   try {
-    const { data } = await tenantApi.acceptInvite(token, form)
-    auth.setSession(data.token, data.client)
+    const { data } = await tenantApi.acceptInvite(token, form.password)
+    auth.setSession(data.token, data.user)
     router.push({ name: 'dashboard' })
   } catch (e) {
     error.value = apiErrorMessage(e, t('auth.inviteError'))
@@ -52,16 +51,6 @@ async function handleSubmit() {
       <Card>
         <CardContent>
           <form @submit.prevent="handleSubmit" class="space-y-5">
-            <div class="grid gap-1.5">
-              <Label for="invite-name">{{ t('auth.yourName') }} *</Label>
-              <Input
-                id="invite-name"
-                v-model="form.name"
-                type="text"
-                required
-                placeholder="Ime i prezime"
-              />
-            </div>
 
             <div class="grid gap-1.5">
               <Label for="invite-password">{{ t('auth.password') }} *</Label>

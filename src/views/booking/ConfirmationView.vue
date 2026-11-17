@@ -1,21 +1,17 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { bookingApi } from '@/api/booking'
 import api from '@/api/axios'
 import type { Booking } from '@/api/booking'
-import { useTenantStore } from '@/stores/tenant'
-import TenantLogo from '@/components/TenantLogo.vue'
+import PublicHeader from '@/components/booking/PublicHeader.vue'
+import BookingDetails from '@/components/booking/BookingDetails.vue'
 import { CheckIcon } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 import { apiErrorMessage } from '@/lib/apiError'
-import { formatPrice } from '@/lib/price'
 
-const { t, locale } = useI18n()
-const tenant = useTenantStore()
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
@@ -27,7 +23,6 @@ const pushSubscribed = ref(false)
 const pushSubscribing = ref(false)
 const pushError = ref('')
 
-const jsLocale = computed(() => locale.value === 'sr' ? 'sr-Latn-RS' : 'en-US')
 
 onMounted(async () => {
   const token = route.query.token as string
@@ -44,14 +39,6 @@ onMounted(async () => {
   }
 })
 
-function formatDate(date: string) {
-  return new Date(date).toLocaleDateString(jsLocale.value, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
-}
 
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4)
@@ -88,80 +75,58 @@ async function subscribePush() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-    <Card class="w-full max-w-md">
-      <CardContent class="px-8 py-2 text-center">
+  <div class="min-h-screen bg-gray-50">
+    <PublicHeader>
+      <router-link :to="{ name: 'my-bookings' }" class="text-sm font-medium text-primary hover:underline">{{ t('myBookings.title') }}</router-link>
+    </PublicHeader>
 
-        <div class="flex items-center justify-center gap-2 mb-6">
-          <TenantLogo :src="tenant.logoUrl" :size="28" />
-          <span class="font-semibold">{{ tenant.appName }}</span>
+    <main class="mx-auto flex max-w-[520px] flex-col items-center gap-6 px-4 pt-16 pb-20 text-center sm:px-6">
+      <div v-if="loading" class="text-muted-foreground">{{ t('common.loading') }}</div>
+
+      <template v-else-if="booking">
+        <span aria-hidden="true" class="flex size-14 items-center justify-center rounded-full bg-accent">
+          <CheckIcon class="size-7 text-primary" />
+        </span>
+        <div class="flex flex-col gap-2">
+          <h1 class="text-[28px] leading-tight font-semibold">
+            {{ booking.status === 'confirmed' ? t('confirmation.titleConfirmed') : t('confirmation.title') }}
+          </h1>
+          <p class="text-gray-600">
+            {{ booking.status === 'confirmed' ? t('confirmation.textConfirmed') : t('confirmation.text') }}
+          </p>
         </div>
 
-        <div v-if="loading" class="text-muted-foreground">{{ t('common.loading') }}</div>
-
-        <template v-else-if="booking">
-          <div class="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckIcon class="w-7 h-7 text-green-600" />
+        <BookingDetails :booking="booking">
+          <div class="flex justify-between gap-4">
+            <dt class="text-gray-600">{{ t('confirmation.status') }}</dt>
+            <dd class="text-right font-medium">{{ t(`myBookings.status.${booking.status}`) }}</dd>
           </div>
+        </BookingDetails>
 
-          <h1 class="text-xl font-semibold mb-1">{{ t('confirmation.title') }}</h1>
-          <p class="text-muted-foreground text-sm mb-6">
-            {{ t('confirmation.sentTo', { contact: booking.customer_email ? 'email' : t('booking.phone').toLowerCase() }) }}
-          </p>
-
-          <div class="bg-muted/60 rounded-xl p-4 text-left space-y-2 mb-6">
-            <div class="flex justify-between text-sm">
-              <span class="text-muted-foreground">{{ t('confirmation.worker') }}</span>
-              <span class="font-medium">{{ booking.slot.worker.name }}</span>
-            </div>
-            <div v-if="booking.service" class="flex justify-between gap-4 text-sm">
-              <span class="text-muted-foreground">{{ t('confirmation.service') }}</span>
-              <span class="font-medium text-right">
-                {{ booking.service.name }}<template v-if="booking.service.price"> · {{ formatPrice(booking.service.price, locale, tenant.config?.currency) }}</template>
-              </span>
-            </div>
-            <div class="flex justify-between text-sm">
-              <span class="text-muted-foreground">{{ t('confirmation.date') }}</span>
-              <span class="font-medium capitalize">{{ formatDate(booking.slot.date) }}</span>
-            </div>
-            <div class="flex justify-between text-sm">
-              <span class="text-muted-foreground">{{ t('confirmation.time') }}</span>
-              <span class="font-medium">
-                {{ booking.start_time.slice(0, 5) }} — {{ booking.end_time.slice(0, 5) }}
-              </span>
-            </div>
+        <!-- Push obaveštenja -->
+        <div v-if="pushSupported && !pushSubscribed" class="flex w-full flex-col gap-3 rounded-xl border border-gray-100 bg-card p-5 text-left">
+          <div>
+            <p class="font-semibold">{{ t('confirmation.pushTitle') }}</p>
+            <p class="text-sm text-gray-600">{{ t('confirmation.pushDesc') }}</p>
           </div>
+          <Button variant="outline" :disabled="pushSubscribing" @click="subscribePush">
+            {{ pushSubscribing ? t('confirmation.pushSubscribing') : t('confirmation.pushBtn') }}
+          </Button>
+          <p v-if="pushError" class="text-sm text-destructive">{{ pushError }}</p>
+        </div>
+        <p v-else-if="pushSubscribed" class="text-sm font-medium text-green-800" role="status">{{ t('confirmation.pushSubscribed') }}</p>
+        <p v-else class="text-[13px] text-gray-600">{{ t('confirmation.pushUnsupported') }}</p>
 
-          <!-- Push subscription -->
-          <div v-if="pushSupported && !pushSubscribed" class="mt-6">
-            <Separator class="mb-5" />
-            <p class="text-sm font-medium mb-1">{{ t('confirmation.pushTitle') }}</p>
-            <p class="text-xs text-muted-foreground mb-3">{{ t('confirmation.pushDesc') }}</p>
-            <Button class="w-full" :disabled="pushSubscribing" @click="subscribePush">
-              {{ pushSubscribing ? t('confirmation.pushSubscribing') : t('confirmation.pushBtn') }}
-            </Button>
-            <p v-if="pushError" class="text-destructive text-xs mt-2">{{ pushError }}</p>
-          </div>
+        <Button variant="outline" size="lg" as-child>
+          <router-link :to="{ name: 'booking' }">{{ t('confirmation.bookAnother') }}</router-link>
+        </Button>
+        <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
+          <router-link :to="{ name: 'my-bookings' }" class="text-primary hover:underline">{{ t('confirmation.myBookings') }}</router-link>
+          <router-link :to="{ name: 'manage', params: { token: booking.token } }" class="text-primary hover:underline">{{ t('confirmation.manageLink') }}</router-link>
+        </div>
+      </template>
+    </main>
 
-          <div v-else-if="pushSubscribed" class="mt-6 text-center">
-            <Separator class="mb-5" />
-            <p class="text-sm text-green-600 font-medium">🔔 {{ t('confirmation.pushSubscribed') }}</p>
-          </div>
-
-          <div v-if="!pushSupported" class="mt-4 text-xs text-muted-foreground text-center">
-            {{ t('confirmation.pushUnsupported') }}
-          </div>
-
-          <div class="mt-5">
-            <router-link
-              :to="{ name: 'manage', params: { token: booking.token } }"
-              class="text-sm text-primary hover:text-primary/80"
-            >
-              {{ t('confirmation.manageLink') }}
-            </router-link>
-          </div>
-        </template>
-      </CardContent>
-    </Card>
+    <footer class="px-6 pb-8 text-center text-[13px] text-gray-600">{{ t('booking.poweredBy') }}</footer>
   </div>
 </template>

@@ -66,7 +66,7 @@ describe('api client unauthorized handling', () => {
   }
 
   it('reports a 401 for a request that carried a token', async () => {
-    const handler = vi.fn()
+    const handler = vi.fn<(...args: unknown[]) => unknown>()
     onUnauthorized(handler)
 
     await rejected(401, true)
@@ -75,7 +75,7 @@ describe('api client unauthorized handling', () => {
   })
 
   it('ignores 401 without a token (e.g. wrong password) and other errors', async () => {
-    const handler = vi.fn()
+    const handler = vi.fn<(...args: unknown[]) => unknown>()
     onUnauthorized(handler)
 
     await rejected(401, false)
