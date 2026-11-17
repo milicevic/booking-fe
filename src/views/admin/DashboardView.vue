@@ -38,6 +38,7 @@ const generateSuccess = ref('')
 // ─── Auth / role ──────────────────────────────────────────────────────────────
 const auth = useAuthStore()
 const isWorker = computed(() => auth.client?.role === 'worker')
+const isClient = computed(() => auth.client?.role === 'client')
 
 // Radnik sam uređuje svoju sliku i opis koje kupci vide pri zakazivanju
 const ownProfile = ref<Worker | null>(null)
@@ -508,6 +509,18 @@ function formatTime(t: string) {
     <template v-else>
       <template v-if="!isAdmin">
         <NotificationList />
+
+        <Card v-if="isClient && !loading && workers.length === 0" class="mb-6">
+          <CardContent class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium">{{ t('onboarding.banner.title') }}</p>
+              <p class="text-xs text-muted-foreground">{{ t('onboarding.banner.text') }}</p>
+            </div>
+            <Button as-child>
+              <router-link :to="{ name: 'onboarding' }">{{ t('onboarding.banner.cta') }}</router-link>
+            </Button>
+          </CardContent>
+        </Card>
 
         <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
           <h1 class="text-xl font-semibold">{{ t('dashboard.title') }}</h1>
