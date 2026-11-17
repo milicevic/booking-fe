@@ -8,6 +8,8 @@ const props = defineProps<{
   appName?: string
   disabled?: boolean
   hint?: string
+  /** Dugme je iznad polja: razdvajač ispod njega, sa tekstom "ili email adresom" */
+  first?: boolean
 }>()
 
 const { t } = useI18n()
@@ -19,7 +21,7 @@ function start() {
 
 <template>
   <div class="space-y-5">
-    <div class="flex items-center gap-3">
+    <div v-if="!first" class="flex items-center gap-3">
       <div class="h-px flex-1 bg-border" />
       <span class="text-xs text-muted-foreground">{{ t('auth.google.or') }}</span>
       <div class="h-px flex-1 bg-border" />
@@ -43,5 +45,11 @@ function start() {
       </svg>
       {{ t('auth.google.continueBtn') }}
     </Button>
+
+    <div v-if="first" class="flex items-center gap-3">
+      <div class="h-px flex-1 bg-border" />
+      <span class="text-xs text-muted-foreground">{{ t('auth.google.orEmail') }}</span>
+      <div class="h-px flex-1 bg-border" />
+    </div>
   </div>
 </template>

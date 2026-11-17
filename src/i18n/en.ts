@@ -16,6 +16,7 @@ export default {
   nav: {
     overview: 'Overview',
     bookings: 'Bookings',
+    calendar: 'Calendar',
     slots: 'Slots',
     workers: 'Workers',
     services: 'Services',
@@ -135,6 +136,7 @@ export default {
     registerLink: 'Register for free',
 
     registerTitle: 'Create account',
+    panel: { title: 'Set up booking in one afternoon', trial: '7 days free', address: 'A booking link on your own subdomain', noAccount: 'Customers book without an account', copyright: '© 2026 Termin' },
     registerSubtitle: 'Start with 7 days free',
     businessName: 'Business name',
     businessNamePlaceholder: 'e.g. Ana Hair Studio',
@@ -195,6 +197,7 @@ export default {
 
     google: {
       continueBtn: 'Continue with Google',
+      orEmail: 'or with email',
       or: 'or',
       registerHint: 'Enter the business name first',
       callbackTitle: 'Sign in with Google',
@@ -404,6 +407,23 @@ export default {
     cancelBtn: 'Cancel booking',
     cancelConfirm: 'Cancel booking for {name}?',
     noBookings: 'No bookings',
+  },
+
+  calendar: {
+    title: 'Calendar',
+    weekLabel: 'Weekly calendar',
+    prevWeek: 'Previous week',
+    nextWeek: 'Next week',
+    thisWeek: 'This week',
+    allWorkers: 'All staff',
+    kind: { free: 'Free', taken: 'Taken', pending: 'Awaiting confirmation', confirmed: 'Confirmed' },
+    panel: {
+      title: 'Selected slot',
+      empty: 'Select a slot in the calendar to see the booking or remove it.',
+      reject: 'Reject',
+      ownerConfirms: 'The owner confirms this booking.',
+      removeSlot: 'Remove free slot',
+    },
   },
 
   onboarding: {

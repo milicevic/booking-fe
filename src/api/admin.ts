@@ -77,6 +77,9 @@ export const adminApi = {
   getBookings: (clientId?: number) =>
     api.get<Booking[]>('/api/bookings', { params: clientId ? { client_id: clientId } : undefined }),
   cancelBooking: (token: string) => api.patch(`/api/bookings/${token}/cancel`),
+  // Potvrda i odbijanje: samo vlasnik firme (BookingPolicy)
+  confirmBooking: (token: string) => api.patch(`/api/bookings/${token}/confirm`),
+  rejectBooking: (token: string) => api.patch(`/api/bookings/${token}/reject`),
 
   updateSettings: (data: { auto_confirm_bookings?: boolean; customer_contact?: CustomerContact }) =>
     api.patch('/api/client/settings', data),

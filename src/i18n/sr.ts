@@ -16,6 +16,7 @@ export default {
   nav: {
     overview: 'Pregled',
     bookings: 'Rezervacije',
+    calendar: 'Kalendar',
     slots: 'Termini',
     workers: 'Radnici',
     services: 'Usluge',
@@ -135,6 +136,7 @@ export default {
     registerLink: 'Registrujte se besplatno',
 
     registerTitle: 'Kreiranje naloga',
+    panel: { title: 'Podesite zakazivanje za jedno popodne', trial: '7 dana besplatno', address: 'Link za zakazivanje na vašem poddomenu', noAccount: 'Klijenti zakazuju bez naloga', copyright: '© 2026 Termin' },
     registerSubtitle: 'Počnite sa 7 dana besplatno',
     businessName: 'Naziv firme',
     businessNamePlaceholder: 'npr. Frizerski salon Ana',
@@ -195,6 +197,7 @@ export default {
 
     google: {
       continueBtn: 'Nastavi sa Google',
+      orEmail: 'ili email adresom',
       or: 'ili',
       registerHint: 'Prvo unesite naziv firme',
       callbackTitle: 'Prijava preko Google naloga',
@@ -404,6 +407,23 @@ export default {
     cancelBtn: 'Otkaži rezervaciju',
     cancelConfirm: 'Otkazati rezervaciju za {name}?',
     noBookings: 'Nema rezervacija',
+  },
+
+  calendar: {
+    title: 'Kalendar',
+    weekLabel: 'Nedeljni kalendar',
+    prevWeek: 'Prethodna nedelja',
+    nextWeek: 'Sledeća nedelja',
+    thisWeek: 'Ova nedelja',
+    allWorkers: 'Svi radnici',
+    kind: { free: 'Slobodan', taken: 'Zauzet', pending: 'Čeka potvrdu', confirmed: 'Potvrđen' },
+    panel: {
+      title: 'Izabrani termin',
+      empty: 'Izaberite termin u kalendaru da vidite rezervaciju ili ga uklonite.',
+      reject: 'Odbij',
+      ownerConfirms: 'Ovu rezervaciju potvrđuje vlasnik.',
+      removeSlot: 'Ukloni slobodan termin',
+    },
   },
 
   onboarding: {

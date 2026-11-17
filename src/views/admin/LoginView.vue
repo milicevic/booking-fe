@@ -61,6 +61,8 @@ async function resendVerification() {
     <Card>
       <CardContent>
         <form @submit.prevent="handleLogin" class="space-y-5">
+          <GoogleButton intent="login" first />
+
           <p
             v-if="route.query.reset === '1'"
             class="rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700"
@@ -135,8 +137,6 @@ async function resendVerification() {
           <Button type="submit" size="lg" class="w-full" :disabled="loading">
             {{ loading ? t('auth.loggingIn') : t('auth.loginBtn') }}
           </Button>
-
-          <GoogleButton intent="login" />
 
           <p class="text-center text-xs text-muted-foreground">
             {{ t('auth.noAccount') }}
