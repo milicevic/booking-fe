@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Booking, Slot } from '@/api/booking'
-import { addDays, buildWeek, startOfWeek, toISODate } from '@/lib/weekCalendar'
+import { addDays, blockRows, buildWeek, gridRange, rowLabel, startOfWeek, toISODate } from '@/lib/weekCalendar'
 
 // 2026-11-11 je sreda
 const monday = new Date(2026, 10, 9)
@@ -55,5 +55,17 @@ describe('week calendar', () => {
   it('filters by worker', () => {
     const slots = [slot(1, 1, '2026-11-09', '09:00', '09:30'), slot(2, 2, '2026-11-09', '09:00', '09:30')]
     expect(buildWeek(monday, slots, [], 2)[0]!.blocks.map((b) => b.slot.id)).toEqual([2])
+  })
+
+  it('builds the time grid from the earliest start to the latest end', () => {
+    const first = slot(1, 1, '2026-11-09', '09:00', '09:30', false)
+    const slots = [first, slot(2, 1, '2026-11-09', '09:30', '10:00', false), slot(3, 1, '2026-11-10', '16:00', '16:30')]
+    const week = buildWeek(monday, slots, [booking(1, first, '09:00', '10:00', 'confirmed')], null)
+    const range = gridRange(week)
+    expect(range).toEqual({ start: 540, rows: 15 })
+    expect(blockRows(week[0]!.blocks[0]!, range.start)).toEqual({ row: 0, span: 2 })
+    expect(blockRows(week[1]!.blocks[0]!, range.start)).toEqual({ row: 14, span: 1 })
+    expect(rowLabel(range.start, 1)).toBe('09:30')
+    expect(gridRange(buildWeek(monday, [], [], null)).rows).toBe(0)
   })
 })

@@ -54,7 +54,11 @@ async function load() {
 onMounted(async () => {
   try {
     await load()
-    if (isOwner.value) workers.value = (await adminApi.getWorkers(adminContext.selectedClient?.id)).data
+    if (isOwner.value) {
+      workers.value = (await adminApi.getWorkers(adminContext.selectedClient?.id)).data
+      // Mreža prikazuje jednog radnika po jednog, da se termini različitih radnika ne preklapaju
+      workerId.value = workers.value[0]?.id ?? null
+    }
   } catch (e) {
     error.value = apiErrorMessage(e, t('common.error'))
   } finally {
@@ -113,9 +117,6 @@ async function onRemoveSlot() {
     </div>
 
     <div v-if="isOwner && workers.length > 0" class="mb-4 flex flex-wrap items-center gap-2" role="group" :aria-label="t('slots.worker')">
-      <Button :variant="workerId === null ? 'default' : 'outline'" size="sm" :aria-pressed="workerId === null" @click="workerId = null; selectedKey = null">
-        {{ t('calendar.allWorkers') }}
-      </Button>
       <Button
         v-for="w in workers"
         :key="w.id"

@@ -83,3 +83,33 @@ export function buildWeek(monday: Date, slots: Slot[], bookings: Booking[], work
     return { date, blocks }
   })
 }
+
+export const ROW_MINUTES = 30
+
+const toMinutes = (time: string) => {
+  const [h = 0, m = 0] = time.split(':').map(Number)
+  return h * 60 + m
+}
+
+/** Vremenska osa mreže: početak (zaokružen na pola sata) i broj redova koji pokriva sve blokove nedelje. */
+export function gridRange(days: WeekDay[]): { start: number; rows: number } {
+  const blocks = days.flatMap((d) => d.blocks)
+  if (blocks.length === 0) return { start: 9 * 60, rows: 0 }
+  const first = Math.min(...blocks.map((b) => toMinutes(b.start)))
+  const last = Math.max(...blocks.map((b) => toMinutes(b.end)))
+  const start = Math.floor(first / ROW_MINUTES) * ROW_MINUTES
+  return { start, rows: Math.ceil((last - start) / ROW_MINUTES) }
+}
+
+/** Prvi red bloka (od 0) i koliko redova zauzima; najmanje jedan. */
+export function blockRows(block: WeekBlock, gridStart: number): { row: number; span: number } {
+  const from = toMinutes(block.start)
+  const row = Math.floor((from - gridStart) / ROW_MINUTES)
+  const span = Math.max(1, Math.round((toMinutes(block.end) - from) / ROW_MINUTES))
+  return { row, span }
+}
+
+export function rowLabel(gridStart: number, row: number): string {
+  const m = gridStart + row * ROW_MINUTES
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+}

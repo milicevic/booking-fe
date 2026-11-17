@@ -415,6 +415,7 @@ export default {
     prevWeek: 'Previous week',
     nextWeek: 'Next week',
     thisWeek: 'This week',
+    noSlots: 'No slots this week.',
     allWorkers: 'All staff',
     kind: { free: 'Free', taken: 'Taken', pending: 'Awaiting confirmation', confirmed: 'Confirmed' },
     panel: {

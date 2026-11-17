@@ -415,6 +415,7 @@ export default {
     prevWeek: 'Prethodna nedelja',
     nextWeek: 'Sledeća nedelja',
     thisWeek: 'Ova nedelja',
+    noSlots: 'Nema termina za ovu nedelju.',
     allWorkers: 'Svi radnici',
     kind: { free: 'Slobodan', taken: 'Zauzet', pending: 'Čeka potvrdu', confirmed: 'Potvrđen' },
     panel: {
