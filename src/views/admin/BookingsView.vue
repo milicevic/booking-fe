@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
@@ -36,6 +37,7 @@ const canModerate = computed(
 )
 
 onMounted(fetchBookings)
+useLiveRefresh(() => (busy.value ? undefined : fetchBookings()), { poll: true })
 
 async function fetchBookings() {
   try {

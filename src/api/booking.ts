@@ -16,6 +16,8 @@ export interface Booking {
   /** Samo na javnom prikazu (po tokenu): da li kupac sada sme sam da pomeri rezervaciju */
   can_reschedule?: boolean
   reschedule_cutoff_hours?: number
+  /** Dodavanje u kalendar (null ako ga je vlasnik isključio ili rezervacija nije aktivna) */
+  calendar?: { google_url: string; ics_url: string } | null
 }
 
 export interface Service {

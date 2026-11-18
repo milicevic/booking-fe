@@ -10,6 +10,7 @@ interface ClientProfile {
   customer_contact: CustomerContact
   confirmation_mode?: 'owner' | 'worker' | 'auto'
   reschedule_cutoff_hours?: number
+  calendar_invites?: boolean
   onboarding_completed_at?: string | null
 }
 

@@ -19,6 +19,8 @@ export interface TenantConfig {
   business_type?: BusinessType | null
   /** Do koliko sati pre početka kupac sme sam da pomeri rezervaciju */
   reschedule_cutoff_hours?: number
+  /** Kupac može da doda termin u kalendar */
+  calendar_invites?: boolean
   /** Ko potvrđuje rezervacije (owner, worker, auto) */
   confirmation_mode?: 'owner' | 'worker' | 'auto'
   subscription_status: 'trialing' | 'active' | 'expired' | 'canceled' | 'pending_deploy'

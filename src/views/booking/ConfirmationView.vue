@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import AddToCalendar from '@/components/booking/AddToCalendar.vue'
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
+import { useBookingChangeToast } from '@/composables/useBookingChangeToast'
+import { bookingChange } from '@/lib/bookingChanges'
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -42,6 +46,16 @@ onMounted(async () => {
   }
 })
 
+
+// Salon potvrdi ili odbije rezervaciju dok kupac još gleda potvrdu
+const showChanges = useBookingChangeToast()
+useLiveRefresh(async () => {
+  if (!booking.value) return
+  const { data } = await bookingApi.getByToken(booking.value.token)
+  const change = bookingChange(booking.value, data)
+  booking.value = data
+  if (change) showChanges([change])
+})
 
 async function subscribePush() {
   if (!booking.value) return
@@ -87,6 +101,8 @@ async function subscribePush() {
             <dd class="text-right font-medium">{{ t(`myBookings.status.${booking.status}`) }}</dd>
           </div>
         </BookingDetails>
+
+        <AddToCalendar v-if="booking.calendar" :calendar="booking.calendar" />
 
         <!-- Push obaveštenja -->
         <div v-if="pushSupported && !pushSubscribed" class="flex w-full flex-col gap-3 rounded-xl border border-gray-100 bg-card p-5 text-left">

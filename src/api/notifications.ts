@@ -5,13 +5,15 @@ export interface Notification {
   id: string
   type: string
   data: {
-    type: 'booking_pending' | 'booking_confirmed'
+    type: 'booking_pending' | 'booking_confirmed' | 'booking_cancelled'
     booking_token: string
     customer_name: string
     worker_name: string
     service_name: string | null
     date: string
     start_time: string
+    /** Kupac je sam pomerio postojeću rezervaciju */
+    rescheduled?: boolean
   }
   read_at: string | null
   created_at: string

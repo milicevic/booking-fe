@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
+import { useToast } from '@/composables/useToast'
+import { useLiveNotificationsStore } from '@/stores/liveNotifications'
+import { notificationLabel } from '@/lib/notificationLabel'
 import { computed, onMounted, type Component } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -80,6 +84,15 @@ const trialLabel = computed(() => {
 onMounted(() => {
   if (showNav.value) void pending.refresh(adminContext.selectedClient?.id)
 })
+
+// Dok je admin otvoren: bedž „čeka potvrdu“ i nova obaveštenja (nova rezervacija…) stižu sama, uz poruku
+const live = useLiveNotificationsStore()
+const toast = useToast()
+useLiveRefresh(async () => {
+  if (!showNav.value) return
+  const [fresh] = await Promise.all([isAdmin.value ? Promise.resolve([]) : live.load(), pending.refresh(adminContext.selectedClient?.id)])
+  for (const n of fresh) toast.info(notificationLabel(n, t), 8000)
+}, { poll: true })
 
 interface NavItem {
   name: string

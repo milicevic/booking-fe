@@ -16,6 +16,7 @@ vi.mock('@/api/slots', () => ({ slotsApi: { getTimes: vi.fn<(...args: unknown[])
 import { bookingApi } from '@/api/booking'
 import { slotsApi } from '@/api/slots'
 import ManageView from '@/views/booking/ManageView.vue'
+import { useToast } from '@/composables/useToast'
 
 function booking(status: string, extra: Record<string, unknown> = {}) {
   return {
@@ -89,5 +90,32 @@ describe('ManageView', () => {
 
     expect(wrapper.text()).toContain('up to 6 h before it starts')
     expect(wrapper.findAll('button').some((b) => b.text() === 'Change time')).toBe(false)
+  })
+
+  it('shows the new status when the customer returns to the tab', async () => {
+    const wrapper = await mountManage('pending')
+    expect(wrapper.text()).toContain('Pending')
+
+    vi.mocked(bookingApi.getByToken).mockResolvedValue({ data: booking('confirmed') } as never)
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' })
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Pending')
+    expect(useToast().toasts.value.some((toast) => toast.message.includes('confirmed your booking'))).toBe(true)
+  })
+
+  it('does not poll the booking in the background', async () => {
+    vi.useFakeTimers()
+    try {
+      await mountManage('pending')
+      vi.mocked(bookingApi.getByToken).mockClear()
+
+      await vi.advanceTimersByTimeAsync(120_000)
+
+      expect(bookingApi.getByToken).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

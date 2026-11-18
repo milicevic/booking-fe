@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import AddToCalendar from '@/components/booking/AddToCalendar.vue'
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
+import { useBookingChangeToast } from '@/composables/useBookingChangeToast'
+import { bookingChange } from '@/lib/bookingChanges'
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -38,6 +42,16 @@ const isActive = computed(() => !!booking.value && ['pending', 'confirmed'].incl
 // Pomeranje: samo aktivna rezervacija sa uslugom, dok do početka ima više od roka koji je zadao salon
 const canReschedule = computed(() => isActive.value && !!booking.value?.can_reschedule && !!booking.value?.service)
 const tooLateToReschedule = computed(() => isActive.value && booking.value?.can_reschedule === false)
+
+// Salon potvrdi, odbije ili pomeri rezervaciju dok je stranica otvorena: stanje i poruka stižu sami
+const showChanges = useBookingChangeToast()
+useLiveRefresh(async () => {
+  if (!booking.value || rescheduling.value) return
+  const { data } = await bookingApi.getByToken(booking.value.token)
+  const change = bookingChange(booking.value, data)
+  booking.value = data
+  if (change) showChanges([change])
+})
 
 function onRescheduled(updated: Booking) {
   booking.value = updated
@@ -99,6 +113,8 @@ async function handleCancel() {
         </div>
 
         <BookingDetails :booking="booking" show-name />
+
+        <AddToCalendar v-if="booking.calendar && !rescheduling" :key="booking.calendar.ics_url + booking.start_time" :calendar="booking.calendar" />
 
         <RescheduleBooking v-if="rescheduling" :booking="booking" @done="onRescheduled" @cancel="rescheduling = false" />
         <Button v-else-if="canReschedule" variant="outline" size="lg" @click="(rescheduling = true), (notice = '')">

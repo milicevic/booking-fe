@@ -9,11 +9,17 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
   const data = event.data?.json() ?? {}
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Booking', {
-      body: data.body || '',
-      icon: data.icon || '/icon-192.png',
-      data: data.data ?? {},
-    })
+    Promise.all([
+      self.registration.showNotification(data.title || 'Booking', {
+        body: data.body || '',
+        icon: data.icon || '/icon-192.png',
+        data: data.data ?? {},
+      }),
+      // Otvorene kartice odmah osvežavaju podatke (useLiveRefresh), bez čekanja na sledeću proveru
+      self.clients
+        .matchAll({ type: 'window', includeUncontrolled: true })
+        .then((windows) => windows.forEach((client) => client.postMessage({ type: 'push', data: data.data ?? {} }))),
+    ])
   )
 })
 

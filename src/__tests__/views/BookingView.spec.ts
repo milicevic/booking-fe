@@ -311,13 +311,37 @@ describe('BookingView (end-user booking flow)', () => {
     expect(createBooking).not.toHaveBeenCalled()
   })
 
-  it('validates that email or phone is entered', async () => {
+  it('requires the phone by default', async () => {
     const { wrapper } = await mountView()
     await goToForm(wrapper)
     await wrapper.find('input[type="text"]').setValue('Ana')
     await wrapper.find('form').trigger('submit')
 
-    expect(wrapper.text()).toContain('Enter email or phone')
+    expect(wrapper.text()).toContain('Enter your phone number')
+    expect(createBooking).not.toHaveBeenCalled()
+  })
+
+  it('combines the chosen calling code with the local number', async () => {
+    createBooking.mockResolvedValue({ data: { token: 'tok-1' } })
+    const { wrapper } = await mountView()
+    await goToForm(wrapper)
+    await wrapper.find('input[type="text"]').setValue('Ana')
+    await wrapper.find('select[aria-label="Country code"]').setValue('BA')
+    await wrapper.find('input[type="tel"]').setValue('061 123 456')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(createBooking).toHaveBeenCalledWith(expect.objectContaining({ customer_phone: '+38761123456', customer_email: '' }))
+  })
+
+  it('rejects a phone number that is too short', async () => {
+    const { wrapper } = await mountView()
+    await goToForm(wrapper)
+    await wrapper.find('input[type="text"]').setValue('Ana')
+    await wrapper.find('input[type="tel"]').setValue('64')
+    await wrapper.find('form').trigger('submit')
+
+    expect(wrapper.text()).toContain('Enter a valid phone number')
     expect(createBooking).not.toHaveBeenCalled()
   })
 
@@ -418,6 +442,7 @@ describe('BookingView (end-user booking flow)', () => {
 
     await wrapper.find('input[type="text"]').setValue('Ana')
     await wrapper.find('input[type="email"]').setValue('ana@example.com')
+    await wrapper.find('input[type="tel"]').setValue('64 123 4567')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
@@ -433,6 +458,7 @@ describe('BookingView (end-user booking flow)', () => {
 
     await wrapper.find('input[type="text"]').setValue('Ana')
     await wrapper.find('input[type="email"]').setValue('ana@example.com')
+    await wrapper.find('input[type="tel"]').setValue('64 123 4567')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
@@ -448,6 +474,7 @@ describe('BookingView (end-user booking flow)', () => {
 
     await wrapper.find('input[type="text"]').setValue('Ana')
     await wrapper.find('input[type="email"]').setValue('ana@example.com')
+    await wrapper.find('input[type="tel"]').setValue('64 123 4567')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
