@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { setThemeColor } from '@/lib/pwa'
 import { ref, computed } from 'vue'
 import { tenantApi } from '@/api/tenant'
 import type { TenantConfig } from '@/api/tenant'
@@ -40,6 +41,7 @@ export const useTenantStore = defineStore('tenant', () => {
     if (isHexColor(cfg.primary_color)) {
       root.style.setProperty('--primary', cfg.primary_color)
       root.style.setProperty('--primary-foreground', readableForeground(cfg.primary_color))
+      setThemeColor(cfg.primary_color)
     }
     if (cfg.theme) root.setAttribute('data-theme', cfg.theme)
   }

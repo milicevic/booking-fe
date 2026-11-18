@@ -4,7 +4,7 @@ import { AxiosError } from 'axios'
 vi.mock('@/api/booking', () => ({ bookingApi: { getByToken: vi.fn<(...args: unknown[]) => unknown>() } }))
 
 import { bookingApi } from '@/api/booking'
-import { loadMyBookings, rememberBooking } from '@/lib/myBookings'
+import { loadMyBookings, loadMyBookingsWithHistory, rememberBooking } from '@/lib/myBookings'
 import { localDate } from '../helpers'
 
 const getByToken = vi.mocked(bookingApi.getByToken)
@@ -24,16 +24,26 @@ describe('my bookings', () => {
     vi.clearAllMocks()
   })
 
-  it('keeps upcoming bookings and forgets cancelled and past ones', async () => {
-    ;['active', 'cancelled', 'past'].forEach(rememberBooking)
+  it('lists upcoming bookings and keeps recent cancelled ones as history, forgetting old ones', async () => {
+    ;['active', 'cancelled', 'old'].forEach(rememberBooking)
     getByToken.mockImplementation(async (token: string) => ({
       data: token === 'active' ? booking(token) : token === 'cancelled' ? booking(token, 'cancelled') : booking(token, 'confirmed', '2020-01-01'),
     }) as never)
 
-    const bookings = await loadMyBookings()
+    const { upcoming, history } = await loadMyBookingsWithHistory()
 
-    expect(bookings.map((b) => b.token)).toEqual(['active'])
-    expect(stored()).toEqual(['active'])
+    expect(upcoming.map((b) => b.token)).toEqual(['active'])
+    expect(history.map((b) => b.token)).toEqual(['cancelled'])
+    expect(stored()).toEqual(['active', 'cancelled'])
+  })
+
+  it('returns only upcoming bookings from loadMyBookings', async () => {
+    ;['active', 'cancelled'].forEach(rememberBooking)
+    getByToken.mockImplementation(async (token: string) => ({
+      data: token === 'active' ? booking(token) : booking(token, 'cancelled'),
+    }) as never)
+
+    expect((await loadMyBookings()).map((b) => b.token)).toEqual(['active'])
   })
 
   it('forgets bookings the server no longer knows', async () => {

@@ -19,6 +19,11 @@ const router = createRouter({
       component: () => import('@/views/booking/ConfirmationView.vue'),
     },
     {
+      path: '/my-bookings',
+      name: 'my-bookings',
+      component: () => import('@/views/booking/MyBookingsView.vue'),
+    },
+    {
       path: '/manage/:token',
       name: 'manage',
       component: () => import('@/views/booking/ManageView.vue'),
@@ -64,9 +69,21 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/admin/onboarding',
+      name: 'onboarding',
+      component: () => import('@/views/admin/OnboardingView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/admin/workers',
       name: 'workers',
       component: () => import('@/views/admin/WorkersView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/admin/calendar',
+      name: 'calendar',
+      component: () => import('@/views/admin/CalendarView.vue'),
       meta: { requiresAuth: true },
     },
     {

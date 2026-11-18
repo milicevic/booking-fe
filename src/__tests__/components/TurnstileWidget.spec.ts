@@ -22,12 +22,12 @@ describe('TurnstileWidget', () => {
     vi.stubEnv('VITE_TURNSTILE_SITE_KEY', 'site-key')
     let options: Record<string, unknown> = {}
     window.turnstile = {
-      render: vi.fn((_el, opts) => {
+      render: vi.fn<(el: HTMLElement, opts: Record<string, unknown>) => string>((_el, opts) => {
         options = opts
         return 'widget-1'
       }),
-      reset: vi.fn(),
-      remove: vi.fn(),
+      reset: vi.fn<(...args: unknown[]) => unknown>(),
+      remove: vi.fn<(...args: unknown[]) => unknown>(),
     }
 
     const wrapper = mount(TurnstileWidget, { global: { plugins: [i18n] } })

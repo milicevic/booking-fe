@@ -8,6 +8,9 @@ interface ClientProfile {
   id: number
   auto_confirm_bookings: boolean
   customer_contact: CustomerContact
+  confirmation_mode?: 'owner' | 'worker' | 'auto'
+  reschedule_cutoff_hours?: number
+  onboarding_completed_at?: string | null
 }
 
 export interface Client {

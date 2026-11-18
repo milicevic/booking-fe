@@ -9,6 +9,7 @@ export function createTestRouter() {
     routes: [
       { path: '/', name: 'booking', component: Stub },
       { path: '/confirmation', name: 'confirmation', component: Stub },
+      { path: '/my-bookings', name: 'my-bookings', component: Stub },
       { path: '/manage/:token', name: 'manage', component: Stub },
       { path: '/register', name: 'register', component: Stub },
       { path: '/auth/callback', name: 'google-callback', component: Stub },

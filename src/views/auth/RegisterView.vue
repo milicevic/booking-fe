@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PASSWORD_MIN, PASSWORD_PATTERN } from '@/lib/password'
 import { ref, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { watchDebounced } from '@vueuse/core'
@@ -80,7 +81,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <AuthLayout :title="t('auth.registerTitle')" :subtitle="t('auth.registerSubtitle')">
+  <AuthLayout :title="t('auth.registerTitle')" :subtitle="t('auth.registerSubtitle')" split>
     <!-- Success -->
     <Card v-if="success">
       <CardContent class="space-y-4 text-center">
@@ -164,7 +165,9 @@ async function handleSubmit() {
               v-model="form.password"
               type="password"
               required
-              minlength="8"
+              :minlength="PASSWORD_MIN"
+              :pattern="PASSWORD_PATTERN"
+              :title="t('auth.minPassword')"
               :placeholder="t('auth.minPassword')"
             />
           </div>
