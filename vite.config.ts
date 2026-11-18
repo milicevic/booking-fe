@@ -38,7 +38,7 @@ function contentSecurityPolicy(): Plugin {
         `connect-src 'self' ${apiOrigin} https://challenges.cloudflare.com`.replace(/\s+/g, ' '),
         'frame-src https://challenges.cloudflare.com',
         "worker-src 'self'",
-        "manifest-src 'self'",
+        `manifest-src 'self' ${apiOrigin}`.trim(),
         "object-src 'none'",
         "base-uri 'self'",
         `form-action 'self' ${apiOrigin}`.trim(),

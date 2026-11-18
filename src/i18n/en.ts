@@ -118,6 +118,31 @@ export default {
     pushUnsupported: 'Push notifications are not supported in this browser.',
   },
 
+  push: {
+    title: 'Notifications on this device',
+    enable: 'Turn on notifications',
+    enabling: 'Turning on...',
+    disable: 'Turn off',
+    error: 'Notifications were not turned on. Please try again.',
+    denied: 'Notifications are blocked in the browser. Allow them in the site settings and try again.',
+    installFirst: 'On iPhone, notifications work once you add the site to your home screen (Share → Add to Home Screen).',
+    state: {
+      off: 'Get notified about new bookings right away, even when the site is closed.',
+      on: 'On. Notifications arrive on this device.',
+      denied: 'Notifications are blocked in the browser. Allow them in the site settings (the lock icon next to the address).',
+      needsInstall: 'On iPhone, notifications work once you add the site to your home screen: Share → Add to Home Screen, then open the app from there.',
+      unsupported: 'This browser does not support notifications.',
+    },
+  },
+
+  install: {
+    title: 'Install the app',
+    text: 'Open the page with one tap from your home screen, like an app.',
+    ios: 'Tap Share (the square with an arrow), then “Add to Home Screen”.',
+    button: 'Install',
+    later: 'Not now',
+  },
+
   manage: {
     title: 'Your booking',
     statusActive: 'Active',
@@ -186,7 +211,7 @@ export default {
     inviteTitle: 'Accept invitation',
     inviteSubtitle: 'Set up your work account',
     yourName: 'Your name',
-    minPassword: 'Minimum 8 characters',
+    minPassword: 'At least 10 characters, an uppercase and a lowercase letter and a number',
     activateBtn: 'Activate account',
     activating: 'Activating...',
     inviteError: 'Link is invalid or has expired',
@@ -233,6 +258,7 @@ export default {
       backToLogin: 'Back to sign in',
       errors: {
         google_failed: 'Google sign-in failed. Please try again.',
+        name_taken: 'A business with this name already exists. Please choose another name.',
         email_not_verified: 'Your Google account email is not verified.',
         account_not_found: 'No account exists for this Google email. Register first.',
         suspended: 'Account is suspended.',

@@ -3,13 +3,14 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { bookingApi } from '@/api/booking'
-import api from '@/api/axios'
 import type { Booking } from '@/api/booking'
 import PublicHeader from '@/components/booking/PublicHeader.vue'
 import BookingDetails from '@/components/booking/BookingDetails.vue'
+import InstallAppBanner from '@/components/pwa/InstallAppBanner.vue'
 import { CheckIcon } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { apiErrorMessage } from '@/lib/apiError'
+import { createSubscription, pushNeedsInstall, pushSupported as browserSupportsPush, PushPermissionDeniedError } from '@/lib/push'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -18,7 +19,9 @@ const router = useRouter()
 const booking = ref<Booking | null>(null)
 const loading = ref(true)
 
-const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window
+// Na iPhone-u push radi tek kad je sajt dodat na početni ekran
+const needsInstall = pushNeedsInstall()
+const pushSupported = browserSupportsPush() && !needsInstall
 const pushSubscribed = ref(false)
 const pushSubscribing = ref(false)
 const pushError = ref('')
@@ -40,34 +43,16 @@ onMounted(async () => {
 })
 
 
-function urlBase64ToUint8Array(base64: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64.length % 4)) % 4)
-  const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const raw = atob(b64)
-  return new Uint8Array([...raw].map(c => c.charCodeAt(0)))
-}
-
 async function subscribePush() {
   if (!booking.value) return
   pushSubscribing.value = true
   pushError.value = ''
 
   try {
-    await navigator.serviceWorker.register('/sw.js')
-    const registration = await navigator.serviceWorker.ready  // the active registration
-
-    const { data: { vapid_public_key } } = await api.get('/api/push/vapid-public-key')
-
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapid_public_key) as Uint8Array<ArrayBuffer>,
-    })
-    const json = subscription.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } }
-    await bookingApi.registerPushSubscription(booking.value.token, json)
+    await bookingApi.registerPushSubscription(booking.value.token, await createSubscription())
     pushSubscribed.value = true
   } catch (e) {
-    console.error('Push subscription failed:', e)
-    pushError.value = apiErrorMessage(e, t('confirmation.pushError'))
+    pushError.value = e instanceof PushPermissionDeniedError ? t('push.denied') : apiErrorMessage(e, t('confirmation.pushError'))
   } finally {
     pushSubscribing.value = false
   }
@@ -115,7 +100,10 @@ async function subscribePush() {
           <p v-if="pushError" class="text-sm text-destructive">{{ pushError }}</p>
         </div>
         <p v-else-if="pushSubscribed" class="text-sm font-medium text-green-800" role="status">{{ t('confirmation.pushSubscribed') }}</p>
+        <p v-else-if="needsInstall" class="text-[13px] text-gray-600">{{ t('push.installFirst') }}</p>
         <p v-else class="text-[13px] text-gray-600">{{ t('confirmation.pushUnsupported') }}</p>
+
+        <InstallAppBanner class="w-full text-left" />
 
         <Button variant="outline" size="lg" as-child>
           <router-link :to="{ name: 'booking' }">{{ t('confirmation.bookAnother') }}</router-link>

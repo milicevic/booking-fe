@@ -1,4 +1,5 @@
 import { createApp } from 'vue'
+import { addManifestLink, listenForInstallPrompt } from '@/lib/pwa'
 import { createPinia } from 'pinia'
 
 import './style.css'
@@ -21,6 +22,10 @@ onUnauthorized(() => {
 })
 
 app.mount('#app')
+
+// PWA: manifest firme (za instalaciju) i hvatanje ponude za instalaciju, pre prikaza bilo koje strane
+addManifestLink(import.meta.env.VITE_API_URL ?? '')
+listenForInstallPrompt()
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {})

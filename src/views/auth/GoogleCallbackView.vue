@@ -7,7 +7,7 @@ import AuthLayout from '@/components/auth/AuthLayout.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 
-const GOOGLE_ERRORS = ['google_failed', 'email_not_verified', 'account_not_found', 'suspended', 'wrong_tenant', 'invalid_host']
+const GOOGLE_ERRORS = ['google_failed', 'email_not_verified', 'account_not_found', 'suspended', 'wrong_tenant', 'invalid_host', 'name_taken']
 
 const { t } = useI18n()
 const router = useRouter()

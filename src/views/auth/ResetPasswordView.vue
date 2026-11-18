@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PASSWORD_MIN, PASSWORD_PATTERN } from '@/lib/password'
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -59,7 +60,9 @@ async function handleSubmit() {
               v-model="password"
               type="password"
               required
-              minlength="8"
+              :minlength="PASSWORD_MIN"
+              :pattern="PASSWORD_PATTERN"
+              :title="t('auth.minPassword')"
               autocomplete="new-password"
               :placeholder="t('auth.minPassword')"
             />
@@ -72,7 +75,9 @@ async function handleSubmit() {
               v-model="passwordConfirmation"
               type="password"
               required
-              minlength="8"
+              :minlength="PASSWORD_MIN"
+              :pattern="PASSWORD_PATTERN"
+              :title="t('auth.minPassword')"
               autocomplete="new-password"
             />
           </div>
