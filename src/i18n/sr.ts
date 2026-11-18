@@ -118,6 +118,31 @@ export default {
     pushUnsupported: 'Push obaveštenja nisu podržana u ovom pregledaču.',
   },
 
+  push: {
+    title: 'Obaveštenja na ovom uređaju',
+    enable: 'Uključi obaveštenja',
+    enabling: 'Uključivanje...',
+    disable: 'Isključi',
+    error: 'Obaveštenja nisu uključena. Pokušajte ponovo.',
+    denied: 'Obaveštenja su zabranjena u pregledaču. Dozvolite ih u podešavanjima sajta, pa pokušajte ponovo.',
+    installFirst: 'Na iPhone-u obaveštenja rade kad sajt dodate na početni ekran (Podeli → Dodaj na početni ekran).',
+    state: {
+      off: 'Dobijajte obaveštenje o novim rezervacijama odmah, i kad sajt nije otvoren.',
+      on: 'Uključeno. Obaveštenja stižu na ovaj uređaj.',
+      denied: 'Obaveštenja su zabranjena u pregledaču. Dozvolite ih u podešavanjima sajta (ikonica katanca pored adrese).',
+      needsInstall: 'Na iPhone-u obaveštenja rade kad sajt dodate na početni ekran: Podeli → Dodaj na početni ekran, pa otvorite aplikaciju odatle.',
+      unsupported: 'Ovaj pregledač ne podržava obaveštenja.',
+    },
+  },
+
+  install: {
+    title: 'Instalirajte aplikaciju',
+    text: 'Otvarajte stranicu jednim dodirom sa početnog ekrana, kao aplikaciju.',
+    ios: 'Dodirnite Podeli (kvadrat sa strelicom), pa „Dodaj na početni ekran“.',
+    button: 'Instaliraj',
+    later: 'Ne sada',
+  },
+
   manage: {
     title: 'Vaša rezervacija',
     statusActive: 'Aktivna',
@@ -186,7 +211,7 @@ export default {
     inviteTitle: 'Prihvati pozivnicu',
     inviteSubtitle: 'Podesite vaš radni nalog',
     yourName: 'Vaše ime',
-    minPassword: 'Minimum 8 karaktera',
+    minPassword: 'Najmanje 10 znakova, veliko i malo slovo i broj',
     activateBtn: 'Aktiviraj nalog',
     activating: 'Aktivacija...',
     inviteError: 'Link je nevažeći ili je istekao',
@@ -233,6 +258,7 @@ export default {
       backToLogin: 'Nazad na prijavu',
       errors: {
         google_failed: 'Prijava preko Google naloga nije uspela. Pokušajte ponovo.',
+        name_taken: 'Firma sa ovim nazivom već postoji. Izaberite drugi naziv.',
         email_not_verified: 'Email adresa vašeg Google naloga nije potvrđena.',
         account_not_found: 'Ne postoji nalog sa ovom Google email adresom. Prvo se registrujte.',
         suspended: 'Nalog je suspendovan.',

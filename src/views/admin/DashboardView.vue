@@ -7,6 +7,8 @@ import NotificationList from '@/components/NotificationList.vue'
 import WorkerProfileEditor from '@/components/admin/WorkerProfileEditor.vue'
 import OwnerOverview from '@/components/admin/OwnerOverview.vue'
 import BookingRow from '@/components/admin/BookingRow.vue'
+import PushToggle from '@/components/pwa/PushToggle.vue'
+import InstallAppBanner from '@/components/pwa/InstallAppBanner.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { adminApi } from '@/api/admin'
@@ -204,6 +206,8 @@ watch(
         :site-url="isAdmin ? '' : siteUrl"
       />
 
+      <InstallAppBanner />
+      <PushToggle v-if="!isAdmin" />
       <NotificationList v-if="!isAdmin" />
     </template>
   </AdminLayout>
