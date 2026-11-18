@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -79,6 +80,11 @@ const upcomingBookings = computed(() =>
 function shortDate(date: string) {
   return new Date(date.slice(0, 10) + 'T00:00:00').toLocaleDateString(jsLocale.value, { day: 'numeric', month: 'numeric' })
 }
+
+// Radnik: današnji i predstojeći termini se osvežavaju sami
+useLiveRefresh(async () => {
+  if (isWorker.value) bookings.value = (await adminApi.getBookings()).data
+}, { poll: true })
 
 watch(
   () => auth.client,

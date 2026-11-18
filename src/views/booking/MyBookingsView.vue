@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
+import { useBookingChangeToast } from '@/composables/useBookingChangeToast'
+import { bookingChanges } from '@/lib/bookingChanges'
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { InfoIcon } from '@lucide/vue'
@@ -52,6 +55,17 @@ async function load() {
 }
 
 onMounted(load)
+
+// Promene koje napravi salon (potvrda, odbijanje, pomeranje) stižu same, uz poruku
+const showChanges = useBookingChangeToast()
+useLiveRefresh(async () => {
+  if (loading.value || busy.value) return
+  const before = [...upcoming.value, ...history.value]
+  const result = await loadMyBookingsWithHistory()
+  upcoming.value = result.upcoming
+  history.value = result.history
+  showChanges(bookingChanges(before, [...result.upcoming, ...result.history]))
+})
 
 async function cancel(b: Booking) {
   busy.value = true

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import { i18n } from '@/i18n'
 import { createTestRouter } from '../helpers'
 
@@ -44,6 +45,7 @@ async function mountList(items: Notification[]) {
 
 describe('NotificationList', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.clearAllMocks()
     api.markRead.mockResolvedValue({})
     api.markAllRead.mockResolvedValue({})

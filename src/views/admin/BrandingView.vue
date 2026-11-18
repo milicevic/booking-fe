@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Checkbox } from '@/components/ui/checkbox'
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
@@ -33,7 +34,7 @@ const COLORS = [
   { value: '#b45309', key: 'orange' },
 ]
 const THEMES = ['minimal', 'modern', 'classic'] as const
-const CONTACTS: CustomerContact[] = ['email_or_phone', 'both', 'phone', 'email']
+const CONTACTS: CustomerContact[] = ['phone', 'both', 'email_or_phone', 'email']
 // Rok za pomeranje bira vlasnik slobodno (backend: 0–720 h); podrazumevano 6 h
 const DEFAULT_CUTOFF_HOURS = 6
 const MAX_CUTOFF_HOURS = 720
@@ -46,7 +47,8 @@ const form = ref({
   locale: 'sr',
   business_type: 'salon' as BusinessType,
   confirmation_mode: 'owner' as ConfirmationMode,
-  customer_contact: 'email_or_phone' as CustomerContact,
+  customer_contact: 'phone' as CustomerContact,
+  calendar_invites: true,
   reschedule_cutoff_hours: DEFAULT_CUTOFF_HOURS,
 })
 
@@ -72,7 +74,8 @@ function fill() {
     logoUrl.value = config.logo_url
   }
   form.value.confirmation_mode = profile?.confirmation_mode ?? (profile?.auto_confirm_bookings ? 'auto' : 'owner')
-  form.value.customer_contact = profile?.customer_contact ?? config?.customer_contact ?? 'email_or_phone'
+  form.value.customer_contact = profile?.customer_contact ?? config?.customer_contact ?? 'phone'
+  form.value.calendar_invites = profile?.calendar_invites ?? config?.calendar_invites ?? true
   form.value.reschedule_cutoff_hours = profile?.reschedule_cutoff_hours ?? config?.reschedule_cutoff_hours ?? DEFAULT_CUTOFF_HOURS
 }
 
@@ -239,6 +242,13 @@ async function uploadLogo(event: Event) {
             </p>
           </div>
         </div>
+        <label class="flex items-start gap-3 text-sm">
+          <Checkbox id="calendar-invites" v-model="form.calendar_invites" class="mt-0.5" />
+          <span class="flex flex-col gap-0.5">
+            <span class="font-medium">{{ t('settings.calendarInvites') }}</span>
+            <span class="text-[13px] text-gray-600">{{ t('settings.calendarInvitesHint') }}</span>
+          </span>
+        </label>
       </section>
 
       <SettingsSite />

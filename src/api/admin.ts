@@ -45,6 +45,8 @@ export interface ClientProfile {
   customer_contact: CustomerContact
   confirmation_mode?: ConfirmationMode
   reschedule_cutoff_hours?: number
+  /** Kupac dobija poziv u kalendar (Google / .ics sa podsetnikom) */
+  calendar_invites?: boolean
   /** Kada je vlasnik završio onboarding; null = još nije */
   onboarding_completed_at?: string | null
 }
@@ -54,6 +56,7 @@ export interface SettingsData {
   customer_contact?: CustomerContact
   confirmation_mode?: ConfirmationMode
   reschedule_cutoff_hours?: number
+  calendar_invites?: boolean
   /** true postavlja onboarding_completed_at, false ga briše */
   onboarding_completed?: boolean
 }

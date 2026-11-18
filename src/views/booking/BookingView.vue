@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PhoneInput from '@/components/booking/PhoneInput.vue'
+import { isValidPhone } from '@/lib/phone'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -287,7 +289,7 @@ onMounted(async () => {
 
 // ─── Kontakt kupca ────────────────────────────────────────────────────────────
 // Pravilo bira vlasnik firme (Pregled u adminu); backend proverava isto pri rezervaciji
-const contactRule = computed<CustomerContact>(() => tenant.config?.customer_contact ?? 'email_or_phone')
+const contactRule = computed<CustomerContact>(() => tenant.config?.customer_contact ?? 'phone')
 const emailRequired = computed(() => contactRule.value === 'both' || contactRule.value === 'email')
 const phoneRequired = computed(() => contactRule.value === 'both' || contactRule.value === 'phone')
 
@@ -298,6 +300,7 @@ function contactViolation(email: string, phone: string): string | null {
   if (emailRequired.value && phoneRequired.value && !(hasEmail && hasPhone)) return t('booking.emailAndPhone')
   if (emailRequired.value && !hasEmail) return t('booking.emailRequired')
   if (phoneRequired.value && !hasPhone) return t('booking.phoneRequired')
+  if (hasPhone && !isValidPhone(phone)) return t('booking.phoneInvalid')
   return null
 }
 
@@ -543,7 +546,7 @@ async function handleSubmit() {
                     <span v-else-if="contactRule === 'email_or_phone'" class="font-normal opacity-80">{{ t('booking.orEmail') }}</span>
                     <span v-else class="font-normal opacity-80">({{ t('common.optional') }})</span>
                   </Label>
-                  <Input id="booking-phone" v-model="form.customer_phone" type="tel" autocomplete="tel" placeholder="+381 60 123 4567" />
+                  <PhoneInput id="booking-phone" v-model="form.customer_phone" :required="phoneRequired" />
                 </div>
               </div>
 

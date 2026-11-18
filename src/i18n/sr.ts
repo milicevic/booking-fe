@@ -64,6 +64,8 @@ export default {
     emailAndPhone: 'Unesite i email i telefon',
     emailRequired: 'Unesite email',
     phoneRequired: 'Unesite broj telefona',
+    phoneInvalid: 'Unesite ispravan broj telefona.',
+    callingCode: 'Pozivni broj',
     pickServiceFirst: 'Izaberite uslugu da vidite slobodne termine',
     freeWorkers: '1 radnik slobodan | {n} radnika slobodno',
     pickFreeWorker: 'Ko je slobodan u ovo vreme — izaberite jednog',
@@ -116,6 +118,16 @@ export default {
     pushSubscribed: 'Bićete obavešteni o promenama statusa rezervacije.',
     pushError: 'Nije moguće omogućiti obaveštenja. Pokušajte ponovo.',
     pushUnsupported: 'Push obaveštenja nisu podržana u ovom pregledaču.',
+  },
+
+  live: {
+    moved: 'Salon je pomerio vašu rezervaciju na {date} u {time}.',
+    status: {
+      confirmed: 'Salon je potvrdio vašu rezervaciju za {date} u {time}.',
+      rejected: 'Salon nije mogao da prihvati rezervaciju za {date} u {time}.',
+      cancelled: 'Rezervacija za {date} u {time} je otkazana.',
+      pending: 'Rezervacija za {date} u {time} ponovo čeka potvrdu salona.',
+    },
   },
 
   push: {
@@ -290,7 +302,7 @@ export default {
       label: 'Kupac ostavlja',
       email_or_phone: 'Email ili telefon',
       both: 'Email i telefon',
-      phone: 'Telefon',
+      phone: 'Telefon (email opciono)',
       email: 'Email',
     },
 
@@ -369,6 +381,8 @@ export default {
     empty: 'Nema obaveštenja',
     booking_pending: 'Nova rezervacija od {name}',
     booking_confirmed: 'Rezervacija potvrđena za {name}',
+    booking_moved: '{name} je pomerio rezervaciju',
+    booking_cancelled: '{name} je otkazao rezervaciju',
     at: 'u',
     with: 'sa',
   },
@@ -446,6 +460,8 @@ export default {
     cutoff: 'Kupac sam pomera termin najkasnije',
     cutoffAny: 'Bilo kada pre termina',
     cutoffHours: '{n} sat pre termina | {n} sata pre termina',
+    calendarInvites: 'Kupac dobija poziv u kalendar',
+    calendarInvitesHint: 'Uz potvrdu rezervacije kupac dobija dugme za Google kalendar i fajl .ics za iPhone/Outlook, sa podsetnikom 60 min pre termina. Kad se rezervacija otkaže, fajl uklanja termin iz kalendara.',
     cutoffUnit: 'sati pre termina',
     cutoffHint: 'Kupac može sam da promeni termin najkasnije {n} h pre početka.',
     save: 'Sačuvaj izmene',
@@ -520,6 +536,9 @@ export default {
   },
 
   calendar: {
+    addGoogle: 'Dodaj u Google kalendar',
+    addApple: 'Dodaj u kalendar',
+    addIcs: 'Apple / Outlook kalendar (.ics)',
     title: 'Kalendar',
     weekLabel: 'Nedeljni kalendar',
     prevWeek: 'Prethodna nedelja',

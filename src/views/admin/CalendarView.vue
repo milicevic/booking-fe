@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ChevronLeftIcon, ChevronRightIcon } from '@lucide/vue'
@@ -70,6 +71,9 @@ async function load() {
   slots.value = s.data
   bookings.value = b.data
 }
+
+// Nove, potvrđene, otkazane i pomerene rezervacije se pojavljuju same
+useLiveRefresh(() => (busy.value ? undefined : load()), { poll: true })
 
 onMounted(async () => {
   try {

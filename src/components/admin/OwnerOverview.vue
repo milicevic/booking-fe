@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/api/admin'
@@ -34,6 +35,7 @@ async function load() {
 }
 
 onMounted(load)
+useLiveRefresh(() => (busy.value ? undefined : load()), { poll: true })
 
 const byTime = (a: Booking, b: Booking) =>
   a.slot.date.localeCompare(b.slot.date) || a.start_time.localeCompare(b.start_time)

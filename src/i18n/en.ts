@@ -64,6 +64,8 @@ export default {
     emailAndPhone: 'Enter both email and phone',
     emailRequired: 'Enter your email',
     phoneRequired: 'Enter your phone number',
+    phoneInvalid: 'Enter a valid phone number.',
+    callingCode: 'Country code',
     pickServiceFirst: 'Choose a service to see available slots',
     freeWorkers: '1 worker free | {n} workers free',
     pickFreeWorker: 'Who is free at this time — choose one',
@@ -116,6 +118,16 @@ export default {
     pushSubscribed: "You'll be notified when your booking status changes.",
     pushError: 'Could not enable notifications. Try again later.',
     pushUnsupported: 'Push notifications are not supported in this browser.',
+  },
+
+  live: {
+    moved: 'The business moved your booking to {date} at {time}.',
+    status: {
+      confirmed: 'The business confirmed your booking for {date} at {time}.',
+      rejected: 'The business could not accept your booking for {date} at {time}.',
+      cancelled: 'Your booking for {date} at {time} was cancelled.',
+      pending: 'Your booking for {date} at {time} is waiting for confirmation again.',
+    },
   },
 
   push: {
@@ -290,7 +302,7 @@ export default {
       label: 'Customer must provide',
       email_or_phone: 'Email or phone',
       both: 'Email and phone',
-      phone: 'Phone',
+      phone: 'Phone (email optional)',
       email: 'Email',
     },
 
@@ -369,6 +381,8 @@ export default {
     empty: 'No notifications',
     booking_pending: 'New booking request from {name}',
     booking_confirmed: 'Booking confirmed for {name}',
+    booking_moved: '{name} moved a booking',
+    booking_cancelled: '{name} cancelled a booking',
     at: 'at',
     with: 'with',
   },
@@ -446,6 +460,8 @@ export default {
     cutoff: 'Customers can reschedule up to',
     cutoffAny: 'Any time before the booking',
     cutoffHours: '{n} hour before | {n} hours before',
+    calendarInvites: 'Customers get a calendar invite',
+    calendarInvitesHint: 'With the booking confirmation the customer gets a Google Calendar button and an .ics file for iPhone/Outlook, with a reminder 60 min before. When the booking is cancelled, the file removes it from the calendar.',
     cutoffUnit: 'hours before',
     cutoffHint: 'Customers can move their booking up to {n} h before it starts.',
     save: 'Save changes',
@@ -520,6 +536,9 @@ export default {
   },
 
   calendar: {
+    addGoogle: 'Add to Google Calendar',
+    addApple: 'Add to calendar',
+    addIcs: 'Apple / Outlook calendar (.ics)',
     title: 'Calendar',
     weekLabel: 'Weekly calendar',
     prevWeek: 'Previous week',

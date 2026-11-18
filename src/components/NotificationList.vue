@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useLiveNotificationsStore } from '@/stores/liveNotifications'
+import { notificationLabel } from '@/lib/notificationLabel'
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -10,16 +12,17 @@ import { Button } from '@/components/ui/button'
 const { t, locale } = useI18n()
 const router = useRouter()
 
-const notifications = ref<Notification[]>([])
-const loading = ref(true)
+// Lista je zajednička sa AdminLayout-om, koji je osvežava dok je stranica otvorena
+const live = useLiveNotificationsStore()
+const notifications = computed(() => live.items)
+const loading = ref(!live.loaded)
 const marking = ref(false)
 
 const unreadCount = computed(() => notifications.value.filter(n => !n.read_at).length)
 
 onMounted(async () => {
   try {
-    const { data } = await notificationsApi.getAll()
-    notifications.value = data
+    await live.load()
   } finally {
     loading.value = false
   }
@@ -55,7 +58,7 @@ function formatDate(dateStr: string) {
 }
 
 function notifLabel(n: Notification) {
-  return t(`notifications.${n.data.type}`, { name: n.data.customer_name })
+  return notificationLabel(n, t)
 }
 </script>
 
