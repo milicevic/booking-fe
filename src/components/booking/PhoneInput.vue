@@ -9,7 +9,7 @@ import { CALLING_CODES, DEFAULT_COUNTRY, countryName, flag, toE164 } from '@/lib
  * Broj telefona: pozivni broj iz liste (podrazumevano Srbija) + lokalni broj.
  * v-model je broj u međunarodnom obliku (+381641234567), ili prazan string dok broj nije unet.
  */
-const props = defineProps<{ id: string; required?: boolean }>()
+const props = defineProps<{ id: string; required?: boolean; invalid?: boolean; describedby?: string }>()
 const model = defineModel<string>({ required: true })
 
 const { t, locale } = useI18n()
@@ -36,6 +36,8 @@ watch([dial, national], () => (model.value = toE164(dial.value, national.value))
       inputmode="tel"
       autocomplete="tel-national"
       :required="props.required"
+      :aria-invalid="props.invalid"
+      :aria-describedby="props.describedby"
       placeholder="64 123 4567"
       class="min-w-0 flex-1"
     />

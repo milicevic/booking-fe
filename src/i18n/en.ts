@@ -120,6 +120,19 @@ export default {
     pushUnsupported: 'Push notifications are not supported in this browser.',
   },
 
+  validation: {
+    nameRequired: 'Enter your full name.',
+    workerNameRequired: 'Enter the staff member’s name.',
+    appNameRequired: 'Enter the business name.',
+    emailRequired: 'Enter your email address.',
+    emailInvalid: 'Enter a valid email address (e.g. name{\'@\'}example.com).',
+    phoneRequired: 'Enter your phone number.',
+    phoneInvalid: 'Enter a valid phone number.',
+    passwordRequired: 'Enter a password.',
+    passwordWeak: 'The password needs at least 10 characters, an uppercase and a lowercase letter and a number.',
+    passwordMismatch: 'The passwords do not match.',
+  },
+
   live: {
     moved: 'The business moved your booking to {date} at {time}.',
     status: {
@@ -432,6 +445,9 @@ export default {
     noBookings: 'No bookings for this selection.',
     filterWorker: 'Staff',
     filterStatus: 'Status',
+    block: 'Block',
+    blockAria: 'Block customer {name}',
+    blockConfirm: 'Block {name}? Their upcoming bookings will be cancelled and they will not be able to book online with the same phone or email. You can unblock them in Settings.',
     cancelShort: 'Cancel',
     status: { pending: 'Awaiting confirmation', confirmed: 'Confirmed', cancelled: 'Cancelled', rejected: 'Rejected' },
   },
@@ -460,6 +476,22 @@ export default {
     cutoff: 'Customers can reschedule up to',
     cutoffAny: 'Any time before the booking',
     cutoffHours: '{n} hour before | {n} hours before',
+    abuse: {
+      title: 'Protection against slot hoarding',
+      text: 'Limits how many bookings one customer (same phone or email) can make, and frees slots you did not confirm in time.',
+      maxActive: 'Max upcoming bookings per customer',
+      maxDaily: 'Max new bookings per customer in 24 h',
+      pendingExpiry: 'Unconfirmed booking expires after',
+      hours: 'hours',
+      zeroHint: '0 means no limit. An unconfirmed booking always expires when its time starts, and the customer gets an email that it was not accepted.',
+    },
+    blocked: {
+      title: 'Blocked customers',
+      empty: 'No blocked customers. You block a customer from a booking in “Bookings”.',
+      since: 'since {date}',
+      unblock: 'Unblock',
+      unblockConfirm: 'Unblock {name}? They will be able to book online again.',
+    },
     calendarInvites: 'Customers get a calendar invite',
     calendarInvitesHint: 'With the booking confirmation the customer gets a Google Calendar button and an .ics file for iPhone/Outlook, with a reminder 60 min before. When the booking is cancelled, the file removes it from the calendar.',
     cutoffUnit: 'hours before',

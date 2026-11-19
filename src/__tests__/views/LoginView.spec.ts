@@ -46,6 +46,8 @@ describe('LoginView', () => {
     vi.spyOn(auth, 'login').mockRejectedValue(new Error('401'))
     const { wrapper, router } = await mountLogin()
 
+    await wrapper.find('input[type="email"]').setValue('salon@example.com')
+    await wrapper.find('input[type="password"]').setValue('pogresna')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
@@ -81,6 +83,7 @@ describe('LoginView', () => {
     const { wrapper } = await mountLogin()
 
     await wrapper.find('input[type="email"]').setValue('ana@salon.com')
+    await wrapper.find('input[type="password"]').setValue('Tajna12345')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
@@ -117,5 +120,19 @@ describe('LoginView', () => {
 
     expect(wrapper.find('[data-testid="forgot-password-link"]').attributes('href')).toBe('/admin/forgot-password')
     expect(wrapper.find('[data-testid="password-reset-done"]').exists()).toBe(true)
+  })
+
+  it('shows its own messages under the fields instead of the browser ones', async () => {
+    const auth = useAuthStore()
+    const login = vi.spyOn(auth, 'login')
+    const { wrapper } = await mountLogin()
+
+    await wrapper.find('input[type="email"]').setValue('nije-email')
+    await wrapper.find('form').trigger('submit')
+
+    expect(wrapper.find('form').attributes('novalidate')).toBeDefined()
+    expect(wrapper.find('#login-email-error').text()).toBe('Enter a valid email address (e.g. name@example.com).')
+    expect(wrapper.find('#login-password-error').text()).toBe('Enter a password.')
+    expect(login).not.toHaveBeenCalled()
   })
 })

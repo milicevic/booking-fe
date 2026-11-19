@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { PASSWORD_MIN, PASSWORD_PATTERN } from '@/lib/password'
+import FieldError from '@/components/FieldError.vue'
+import { useFieldErrors } from '@/composables/useFieldErrors'
+import { required, sameAs, strongPassword } from '@/lib/validation'
+import { PASSWORD_MIN } from '@/lib/password'
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -12,6 +15,8 @@ import { Label } from '@/components/ui/label'
 import { apiErrorMessage } from '@/lib/apiError'
 
 const { t } = useI18n()
+// Naše poruke ispod polja umesto poruka pregledača (forma ima novalidate)
+const { errors: fieldErrors, check, fromApi, clear } = useFieldErrors<'password' | 'password_confirmation'>()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -27,14 +32,14 @@ const error = ref('')
 
 async function handleSubmit() {
   error.value = ''
-  if (password.value !== passwordConfirmation.value) return (error.value = t('auth.reset.mismatch'))
+  if (!check({ password: password.value, password_confirmation: passwordConfirmation.value }, { password: [required('validation.passwordRequired'), strongPassword()], password_confirmation: [sameAs(() => password.value)] })) return
 
   loading.value = true
   try {
     await auth.resetPassword({ token, email, password: password.value, password_confirmation: passwordConfirmation.value })
     router.replace({ name: 'login', query: { reset: '1' } })
   } catch (e) {
-    error.value = apiErrorMessage(e, t('auth.reset.error'))
+    if (!fromApi(e, ['password'])) error.value = apiErrorMessage(e, t('auth.reset.error'))
   } finally {
     loading.value = false
   }
@@ -52,7 +57,7 @@ async function handleSubmit() {
           </Button>
         </div>
 
-        <form v-else @submit.prevent="handleSubmit" class="space-y-5">
+        <form novalidate v-else @submit.prevent="handleSubmit" class="space-y-5">
           <div class="grid gap-1.5">
             <Label for="reset-password">{{ t('auth.reset.newPassword') }}</Label>
             <Input
@@ -61,11 +66,13 @@ async function handleSubmit() {
               type="password"
               required
               :minlength="PASSWORD_MIN"
-              :pattern="PASSWORD_PATTERN"
-              :title="t('auth.minPassword')"
               autocomplete="new-password"
               :placeholder="t('auth.minPassword')"
+              :aria-invalid="!!fieldErrors.password"
+              aria-describedby="reset-password-error"
+              @input="clear('password')"
             />
+            <FieldError id="reset-password-error" :message="fieldErrors.password" />
           </div>
 
           <div class="grid gap-1.5">
@@ -76,10 +83,12 @@ async function handleSubmit() {
               type="password"
               required
               :minlength="PASSWORD_MIN"
-              :pattern="PASSWORD_PATTERN"
-              :title="t('auth.minPassword')"
               autocomplete="new-password"
+              :aria-invalid="!!fieldErrors.password_confirmation"
+              aria-describedby="reset-password-confirmation-error"
+              @input="clear('password_confirmation')"
             />
+            <FieldError id="reset-password-confirmation-error" :message="fieldErrors.password_confirmation" />
           </div>
 
           <p v-if="error" class="text-destructive text-xs">{{ error }}</p>

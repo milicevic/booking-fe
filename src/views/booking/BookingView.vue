@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import FieldError from '@/components/FieldError.vue'
+import { useFieldErrors } from '@/composables/useFieldErrors'
+import { email, required } from '@/lib/validation'
+import type { Rule } from '@/lib/validation'
 import PhoneInput from '@/components/booking/PhoneInput.vue'
 import { isValidPhone } from '@/lib/phone'
 import { ref, computed, onMounted, watch } from 'vue'
@@ -293,15 +297,29 @@ const contactRule = computed<CustomerContact>(() => tenant.config?.customer_cont
 const emailRequired = computed(() => contactRule.value === 'both' || contactRule.value === 'email')
 const phoneRequired = computed(() => contactRule.value === 'both' || contactRule.value === 'phone')
 
-function contactViolation(email: string, phone: string): string | null {
-  const hasEmail = !!email.trim()
-  const hasPhone = !!phone.trim()
-  if (contactRule.value === 'email_or_phone') return hasEmail || hasPhone ? null : t('booking.emailOrPhone')
-  if (emailRequired.value && phoneRequired.value && !(hasEmail && hasPhone)) return t('booking.emailAndPhone')
-  if (emailRequired.value && !hasEmail) return t('booking.emailRequired')
-  if (phoneRequired.value && !hasPhone) return t('booking.phoneRequired')
-  if (hasPhone && !isValidPhone(phone)) return t('booking.phoneInvalid')
-  return null
+// Greške po poljima (naše poruke umesto poruka pregledača; forma ima novalidate)
+type ContactField = 'customer_name' | 'customer_phone' | 'customer_email'
+const CONTACT_FIELDS: ContactField[] = ['customer_name', 'customer_phone', 'customer_email']
+const { errors: fieldErrors, check, fromApi, clear } = useFieldErrors<ContactField>()
+const phoneFormat: Rule = (value) => (!value || isValidPhone(value) ? null : 'booking.phoneInvalid')
+
+function validateContact(): boolean {
+  const values = {
+    customer_name: form.value.customer_name,
+    customer_phone: form.value.customer_phone,
+    customer_email: form.value.customer_email,
+  }
+  const valid = check(values, {
+    customer_name: [required('booking.nameRequired')],
+    customer_phone: phoneRequired.value ? [required('booking.phoneRequired'), phoneFormat] : [phoneFormat],
+    customer_email: emailRequired.value ? [required('booking.emailRequired'), email()] : [email()],
+  })
+  // „Email ili telefon“: bar jedno od dva; poruka stoji uz telefon
+  if (valid && contactRule.value === 'email_or_phone' && !values.customer_phone && !values.customer_email.trim()) {
+    fieldErrors.value = { customer_phone: t('booking.emailOrPhone') }
+    return false
+  }
+  return valid
 }
 
 // Zaštita od botova (prazno dok captcha nije uključena)
@@ -310,9 +328,8 @@ const captcha = ref<InstanceType<typeof TurnstileWidget> | null>(null)
 
 async function handleSubmit() {
   if (!selectedSlot.value || !selectedService.value) return
-  if (!form.value.customer_name) return (error.value = t('booking.nameRequired'))
-  const contactError = contactViolation(form.value.customer_email, form.value.customer_phone)
-  if (contactError) return (error.value = contactError)
+  error.value = ''
+  if (!validateContact()) return
   if (captchaEnabled() && !captchaToken.value) return (error.value = t('booking.captchaRequired'))
 
   submitting.value = true
@@ -333,7 +350,7 @@ async function handleSubmit() {
       toast.error(t('booking.slotTaken'))
       resetTime()
       await loadTimes()
-    } else {
+    } else if (!fromApi(e, CONTACT_FIELDS)) {
       error.value = apiErrorMessage(e, t('booking.submitError'))
     }
     // Captcha token važi za jedan zahtev
@@ -530,13 +547,23 @@ async function handleSubmit() {
 
           <!-- 4. Vaši podaci -->
           <BookingStep v-if="selectedSlot" :title="`4. ${t('booking.yourDetails')}`">
-            <form id="booking-form" class="flex flex-col gap-4" @submit.prevent="handleSubmit">
+            <form id="booking-form" class="flex flex-col gap-4" novalidate @submit.prevent="handleSubmit">
               <div class="grid gap-4 sm:grid-cols-2">
                 <div class="grid gap-1.5">
                   <Label for="booking-name">
                     {{ t('booking.fullName') }} <span class="text-destructive">*</span>
                   </Label>
-                  <Input id="booking-name" v-model="form.customer_name" type="text" autocomplete="name" :placeholder="t('booking.fullNamePlaceholder')" />
+                  <Input
+                    id="booking-name"
+                    v-model="form.customer_name"
+                    type="text"
+                    autocomplete="name"
+                    :placeholder="t('booking.fullNamePlaceholder')"
+                    :aria-invalid="!!fieldErrors.customer_name"
+                    aria-describedby="booking-name-error"
+                    @input="clear('customer_name')"
+                  />
+                  <FieldError id="booking-name-error" :message="fieldErrors.customer_name" />
                 </div>
 
                 <div class="grid gap-1.5">
@@ -546,7 +573,15 @@ async function handleSubmit() {
                     <span v-else-if="contactRule === 'email_or_phone'" class="font-normal opacity-80">{{ t('booking.orEmail') }}</span>
                     <span v-else class="font-normal opacity-80">({{ t('common.optional') }})</span>
                   </Label>
-                  <PhoneInput id="booking-phone" v-model="form.customer_phone" :required="phoneRequired" />
+                  <PhoneInput
+                    id="booking-phone"
+                    v-model="form.customer_phone"
+                    :required="phoneRequired"
+                    :invalid="!!fieldErrors.customer_phone"
+                    describedby="booking-phone-error"
+                    @update:model-value="clear('customer_phone')"
+                  />
+                  <FieldError id="booking-phone-error" :message="fieldErrors.customer_phone" />
                 </div>
               </div>
 
@@ -557,7 +592,17 @@ async function handleSubmit() {
                   <span v-else-if="contactRule === 'email_or_phone'" class="font-normal opacity-80">{{ t('booking.orPhone') }}</span>
                   <span v-else class="font-normal opacity-80">({{ t('common.optional') }})</span>
                 </Label>
-                <Input id="booking-email" v-model="form.customer_email" type="email" autocomplete="email" placeholder="vas@email.com" />
+                <Input
+                  id="booking-email"
+                  v-model="form.customer_email"
+                  type="email"
+                  autocomplete="email"
+                  placeholder="vas@email.com"
+                  :aria-invalid="!!fieldErrors.customer_email"
+                  aria-describedby="booking-email-error"
+                  @input="clear('customer_email')"
+                />
+                <FieldError id="booking-email-error" :message="fieldErrors.customer_email" />
                 <p class="text-[13px] text-gray-600">{{ t('booking.emailHint') }}</p>
               </div>
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BlockedCustomers from '@/components/admin/BlockedCustomers.vue'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -49,6 +50,9 @@ const form = ref({
   confirmation_mode: 'owner' as ConfirmationMode,
   customer_contact: 'phone' as CustomerContact,
   calendar_invites: true,
+  max_active_bookings_per_customer: 3,
+  max_daily_bookings_per_customer: 5,
+  pending_expiry_hours: 12,
   reschedule_cutoff_hours: DEFAULT_CUTOFF_HOURS,
 })
 
@@ -76,6 +80,9 @@ function fill() {
   form.value.confirmation_mode = profile?.confirmation_mode ?? (profile?.auto_confirm_bookings ? 'auto' : 'owner')
   form.value.customer_contact = profile?.customer_contact ?? config?.customer_contact ?? 'phone'
   form.value.calendar_invites = profile?.calendar_invites ?? config?.calendar_invites ?? true
+  form.value.max_active_bookings_per_customer = profile?.max_active_bookings_per_customer ?? 3
+  form.value.max_daily_bookings_per_customer = profile?.max_daily_bookings_per_customer ?? 5
+  form.value.pending_expiry_hours = profile?.pending_expiry_hours ?? 12
   form.value.reschedule_cutoff_hours = profile?.reschedule_cutoff_hours ?? config?.reschedule_cutoff_hours ?? DEFAULT_CUTOFF_HOURS
 }
 
@@ -87,8 +94,12 @@ async function save() {
     const { app_name, primary_color, theme, currency, locale, business_type, ...settings } = form.value
     await tenantApi.updateBranding({ app_name, primary_color, theme, currency, locale, business_type })
     const cutoff = Math.round(Number(settings.reschedule_cutoff_hours))
+    const count = (value: unknown, max: number) => Math.min(Math.max(Math.round(Number(value)) || 0, 0), max)
     const { data } = await adminApi.updateSettings({
       ...settings,
+      max_active_bookings_per_customer: count(settings.max_active_bookings_per_customer, 100),
+      max_daily_bookings_per_customer: count(settings.max_daily_bookings_per_customer, 100),
+      pending_expiry_hours: count(settings.pending_expiry_hours, MAX_CUTOFF_HOURS),
       reschedule_cutoff_hours: Number.isFinite(cutoff) ? Math.min(Math.max(cutoff, 0), MAX_CUTOFF_HOURS) : DEFAULT_CUTOFF_HOURS,
     })
     auth.client = data
@@ -249,6 +260,33 @@ async function uploadLogo(event: Event) {
             <span class="text-[13px] text-gray-600">{{ t('settings.calendarInvitesHint') }}</span>
           </span>
         </label>
+      </section>
+
+      <!-- Zaštita od zauzimanja termina -->
+      <section class="flex flex-col gap-4 rounded-xl border border-gray-100 bg-card p-6">
+        <div class="flex flex-col gap-1">
+          <h2 class="text-lg font-semibold">{{ t('settings.abuse.title') }}</h2>
+          <p class="text-sm text-gray-600">{{ t('settings.abuse.text') }}</p>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-3">
+          <div class="grid content-start gap-1.5">
+            <Label for="max-active">{{ t('settings.abuse.maxActive') }}</Label>
+            <Input id="max-active" v-model.number="form.max_active_bookings_per_customer" type="number" inputmode="numeric" min="0" max="100" class="w-28" />
+          </div>
+          <div class="grid content-start gap-1.5">
+            <Label for="max-daily">{{ t('settings.abuse.maxDaily') }}</Label>
+            <Input id="max-daily" v-model.number="form.max_daily_bookings_per_customer" type="number" inputmode="numeric" min="0" max="100" class="w-28" />
+          </div>
+          <div class="grid content-start gap-1.5">
+            <Label for="pending-expiry">{{ t('settings.abuse.pendingExpiry') }}</Label>
+            <div class="flex items-center gap-2">
+              <Input id="pending-expiry" v-model.number="form.pending_expiry_hours" type="number" inputmode="numeric" min="0" :max="MAX_CUTOFF_HOURS" class="w-28" />
+              <span class="text-sm text-gray-600">{{ t('settings.abuse.hours') }}</span>
+            </div>
+          </div>
+        </div>
+        <p class="text-[13px] text-gray-600">{{ t('settings.abuse.zeroHint') }}</p>
+        <BlockedCustomers />
       </section>
 
       <SettingsSite />

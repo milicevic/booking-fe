@@ -29,6 +29,7 @@ describe('tenant store', () => {
     setActivePinia(createPinia())
     document.documentElement.removeAttribute('style')
     document.documentElement.removeAttribute('data-theme')
+    localStorage.clear()
   })
 
   afterEach(() => {
@@ -113,5 +114,26 @@ describe('tenant store', () => {
     getConfig.mockResolvedValue({ data: config({ primary_color: null as never }) })
     await useTenantStore().fetchConfig()
     expect(document.documentElement.style.getPropertyValue('--primary')).toBe('')
+  })
+
+  it('remembers the branding and applies it before the API answers on the next visit', async () => {
+    getConfig.mockResolvedValue({ data: config({ app_name: 'Salon Ana', primary_color: '#be185d', theme: 'classic' }) })
+    await useTenantStore().fetchConfig()
+
+    // Nova poseta: nov store, API još nije odgovorio
+    document.documentElement.removeAttribute('style')
+    document.documentElement.removeAttribute('data-theme')
+    setActivePinia(createPinia())
+    const next = useTenantStore()
+
+    expect(next.appName).toBe('Salon Ana')
+    expect(next.loaded).toBe(false)
+    expect(document.documentElement.style.getPropertyValue('--primary')).toBe('#be185d')
+    expect(document.documentElement.getAttribute('data-theme')).toBe('classic')
+  })
+
+  it('ignores a broken cache', () => {
+    localStorage.setItem('tenant-config', '{nije json')
+    expect(useTenantStore().appName).toBe('Booking')
   })
 })

@@ -47,6 +47,10 @@ export interface ClientProfile {
   reschedule_cutoff_hours?: number
   /** Kupac dobija poziv u kalendar (Google / .ics sa podsetnikom) */
   calendar_invites?: boolean
+  /** Zaštita od zauzimanja termina (0 = bez ograničenja) */
+  max_active_bookings_per_customer?: number
+  max_daily_bookings_per_customer?: number
+  pending_expiry_hours?: number
   /** Kada je vlasnik završio onboarding; null = još nije */
   onboarding_completed_at?: string | null
 }
@@ -57,6 +61,9 @@ export interface SettingsData {
   confirmation_mode?: ConfirmationMode
   reschedule_cutoff_hours?: number
   calendar_invites?: boolean
+  max_active_bookings_per_customer?: number
+  max_daily_bookings_per_customer?: number
+  pending_expiry_hours?: number
   /** true postavlja onboarding_completed_at, false ga briše */
   onboarding_completed?: boolean
 }
@@ -80,6 +87,15 @@ export interface WorkerSchedule extends WorkingHours {
 
 export interface SavedWorkerSchedule extends WorkerSchedule {
   generated: { created: number; skipped: number; removed: number }
+}
+
+/** Kupac koga je vlasnik blokirao (po telefonu i emailu) */
+export interface BlockedCustomer {
+  id: number
+  name: string | null
+  phone: string | null
+  email: string | null
+  created_at: string
 }
 
 export interface BulkSlotsData {
@@ -140,6 +156,11 @@ export const adminApi = {
   // Potvrda i odbijanje: vlasnik, a u režimu 'worker' i radnik kod koga je termin (BookingPolicy)
   confirmBooking: (token: string) => api.patch(`/api/bookings/${token}/confirm`),
   rejectBooking: (token: string) => api.patch(`/api/bookings/${token}/reject`),
+  // Blokira kupca iz rezervacije i otkazuje mu buduće rezervacije (samo vlasnik)
+  blockCustomer: (token: string) =>
+    api.post<{ message: string; blocked: BlockedCustomer; cancelled: number }>(`/api/bookings/${token}/block-customer`),
+  getBlockedCustomers: () => api.get<BlockedCustomer[]>('/api/blocked-customers'),
+  unblockCustomer: (id: number) => api.delete(`/api/blocked-customers/${id}`),
   rescheduleBooking: (token: string, data: { slot_id: number; start_time: string }) =>
     api.patch<Booking>(`/api/bookings/${token}/reschedule`, data),
 

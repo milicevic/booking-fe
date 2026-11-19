@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { PASSWORD_MIN, PASSWORD_PATTERN } from '@/lib/password'
+import FieldError from '@/components/FieldError.vue'
+import { useFieldErrors } from '@/composables/useFieldErrors'
+import { email as emailRule, required, strongPassword } from '@/lib/validation'
+import { PASSWORD_MIN } from '@/lib/password'
 import { ref, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { watchDebounced } from '@vueuse/core'
@@ -17,6 +20,8 @@ import { Label } from '@/components/ui/label'
 import { CheckIcon } from '@lucide/vue'
 
 const { t } = useI18n()
+// Naše poruke ispod polja umesto poruka pregledača (forma ima novalidate)
+const { errors: fieldErrors, check, fromApi, clear } = useFieldErrors<'app_name' | 'name' | 'email' | 'password'>()
 
 const platformHost = import.meta.env.VITE_PLATFORM_HOST || 'slotres.click'
 
@@ -65,6 +70,7 @@ const captcha = ref<InstanceType<typeof TurnstileWidget> | null>(null)
 
 async function handleSubmit() {
   error.value = ''
+  if (!check({ app_name: form.app_name, name: form.name, email: form.email, password: form.password }, { app_name: [required('validation.appNameRequired')], name: [required('validation.nameRequired')], email: [required('validation.emailRequired'), emailRule()], password: [required('validation.passwordRequired'), strongPassword()] })) return
   if (captchaEnabled() && !captchaToken.value) return (error.value = t('booking.captchaRequired'))
   loading.value = true
   try {
@@ -72,7 +78,7 @@ async function handleSubmit() {
     registeredSubdomain.value = data.tenant.subdomain
     success.value = true
   } catch (e) {
-    error.value = apiErrorMessage(e, t('auth.registerError'))
+    if (!fromApi(e, ['app_name', 'name', 'email', 'password'])) error.value = apiErrorMessage(e, t('auth.registerError'))
     captcha.value?.reset()
   } finally {
     loading.value = false
@@ -109,7 +115,7 @@ async function handleSubmit() {
     <!-- Form -->
     <Card v-else>
       <CardContent>
-        <form @submit.prevent="handleSubmit" class="space-y-5">
+        <form novalidate @submit.prevent="handleSubmit" class="space-y-5">
           <div class="grid gap-1.5">
             <Label for="register-app-name">{{ t('auth.businessName') }} *</Label>
             <Input
@@ -119,7 +125,11 @@ async function handleSubmit() {
               required
               maxlength="255"
               :placeholder="t('auth.businessNamePlaceholder')"
+              :aria-invalid="!!fieldErrors.app_name"
+              aria-describedby="register-app-name-error"
+              @input="clear('app_name')"
             />
+            <FieldError id="register-app-name-error" :message="fieldErrors.app_name" />
             <p class="text-[11px] text-muted-foreground">{{ t('auth.businessNameHint') }}</p>
             <div class="mt-0.5 rounded-lg bg-muted/50 border px-3 py-2.5" aria-live="polite">
               <p class="text-[11px] text-muted-foreground mb-0.5">{{ t('auth.addressLabel') }}</p>
@@ -144,7 +154,11 @@ async function handleSubmit() {
               required
               maxlength="255"
               :placeholder="t('auth.yourNamePlaceholder')"
+              :aria-invalid="!!fieldErrors.name"
+              aria-describedby="register-name-error"
+              @input="clear('name')"
             />
+            <FieldError id="register-name-error" :message="fieldErrors.name" />
           </div>
 
           <div class="grid gap-1.5">
@@ -155,7 +169,11 @@ async function handleSubmit() {
               type="email"
               required
               :placeholder="t('auth.emailPlaceholder')"
+              :aria-invalid="!!fieldErrors.email"
+              aria-describedby="register-email-error"
+              @input="clear('email')"
             />
+            <FieldError id="register-email-error" :message="fieldErrors.email" />
           </div>
 
           <div class="grid gap-1.5">
@@ -166,10 +184,12 @@ async function handleSubmit() {
               type="password"
               required
               :minlength="PASSWORD_MIN"
-              :pattern="PASSWORD_PATTERN"
-              :title="t('auth.minPassword')"
               :placeholder="t('auth.minPassword')"
+              :aria-invalid="!!fieldErrors.password"
+              aria-describedby="register-password-error"
+              @input="clear('password')"
             />
+            <FieldError id="register-password-error" :message="fieldErrors.password" />
           </div>
 
           <p class="text-xs text-muted-foreground">{{ t('auth.customizeLater') }}</p>

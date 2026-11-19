@@ -11,6 +11,9 @@ interface ClientProfile {
   confirmation_mode?: 'owner' | 'worker' | 'auto'
   reschedule_cutoff_hours?: number
   calendar_invites?: boolean
+  max_active_bookings_per_customer?: number
+  max_daily_bookings_per_customer?: number
+  pending_expiry_hours?: number
   onboarding_completed_at?: string | null
 }
 

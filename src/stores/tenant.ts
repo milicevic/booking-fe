@@ -5,8 +5,29 @@ import { tenantApi } from '@/api/tenant'
 import type { TenantConfig } from '@/api/tenant'
 import { isHexColor, readableForeground } from '@/lib/color'
 
+// Poslednji izgled firme u ovom pregledaču (localStorage je odvojen po adresi, pa svaka firma ima svoj).
+// Primenjuje se pre prvog prikaza, da posle osvežavanja ne bljesne podrazumevana boja i naziv.
+const CACHE_KEY = 'tenant-config'
+
+function readCachedConfig(): TenantConfig | null {
+  try {
+    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) ?? 'null') as TenantConfig | null
+    return cached && typeof cached === 'object' && typeof cached.app_name === 'string' ? cached : null
+  } catch {
+    return null
+  }
+}
+
+function writeCachedConfig(config: TenantConfig) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(config))
+  } catch {
+    // Pregledač ne dozvoljava čuvanje; izgled stiže sa API-ja kao i do sada
+  }
+}
+
 export const useTenantStore = defineStore('tenant', () => {
-  const config = ref<TenantConfig | null>(null)
+  const config = ref<TenantConfig | null>(readCachedConfig())
   const loaded = ref(false)
 
   const appName = computed(() => config.value?.app_name ?? 'Booking')
@@ -28,6 +49,7 @@ export const useTenantStore = defineStore('tenant', () => {
       const { data } = await tenantApi.getConfig()
       config.value = data
       applyTheme(data)
+      writeCachedConfig(data)
     } catch {
       // Bez tenant config-a - koristi defaults
     } finally {
@@ -45,6 +67,8 @@ export const useTenantStore = defineStore('tenant', () => {
     }
     if (cfg.theme) root.setAttribute('data-theme', cfg.theme)
   }
+
+  if (config.value) applyTheme(config.value)
 
   return { config, loaded, appName, logoUrl, isExpired, isTrialing, trialDaysLeft, fetchConfig }
 })

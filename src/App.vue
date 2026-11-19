@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { isPlatformHostname } from '@/lib/domain'
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTenantStore } from '@/stores/tenant'
 import ConfirmModal from '@/components/ConfirmModal.vue'
@@ -21,16 +21,20 @@ function isTenantDomain(): boolean {
   return !isPlatformHostname(window.location.hostname)
 }
 
+const onTenantSite = isTenantDomain()
+
+// Na sajtu firme se ništa ne prikazuje dok izgled firme nije poznat (iz keša ili sa API-ja),
+// da se ne vidi podrazumevana boja i naziv pa tek onda pravi. Greška API-ja ne blokira stranicu.
+const ready = computed(() => !onTenantSite || tenant.config !== null || tenant.loaded)
+
 onMounted(async () => {
-  await auth.fetchMe()
-  if (isTenantDomain()) {
-    await tenant.fetchConfig()
-  }
+  // Prijava i izgled firme ne zavise jedno od drugog, pa se učitavaju istovremeno
+  await Promise.all([auth.fetchMe(), onTenantSite ? tenant.fetchConfig() : Promise.resolve()])
 })
 </script>
 
 <template>
-  <RouterView />
+  <RouterView v-if="ready" />
   <ConfirmModal />
   <ToastContainer />
 </template>

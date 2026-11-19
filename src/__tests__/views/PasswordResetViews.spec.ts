@@ -43,12 +43,12 @@ describe('password reset', () => {
     const reset = vi.spyOn(useAuthStore(), 'resetPassword').mockResolvedValue()
     const { wrapper, router } = await mountAt(ResetPasswordView, '/admin/reset-password?token=abc&email=ana%40salon.com')
 
-    await wrapper.find('#reset-password').setValue('nova-lozinka')
-    await wrapper.find('#reset-password-confirmation').setValue('nova-lozinka')
+    await wrapper.find('#reset-password').setValue('NovaLozinka1')
+    await wrapper.find('#reset-password-confirmation').setValue('NovaLozinka1')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(reset).toHaveBeenCalledWith({ token: 'abc', email: 'ana@salon.com', password: 'nova-lozinka', password_confirmation: 'nova-lozinka' })
+    expect(reset).toHaveBeenCalledWith({ token: 'abc', email: 'ana@salon.com', password: 'NovaLozinka1', password_confirmation: 'NovaLozinka1' })
     expect(router.currentRoute.value.name).toBe('login')
     expect(router.currentRoute.value.query.reset).toBe('1')
   })
@@ -57,11 +57,11 @@ describe('password reset', () => {
     const reset = vi.spyOn(useAuthStore(), 'resetPassword')
     const { wrapper } = await mountAt(ResetPasswordView, '/admin/reset-password?token=abc&email=ana%40salon.com')
 
-    await wrapper.find('#reset-password').setValue('nova-lozinka')
-    await wrapper.find('#reset-password-confirmation').setValue('druga-lozinka')
+    await wrapper.find('#reset-password').setValue('NovaLozinka1')
+    await wrapper.find('#reset-password-confirmation').setValue('DrugaLozinka1')
     await wrapper.find('form').trigger('submit')
 
-    expect(wrapper.text()).toContain('Passwords do not match')
+    expect(wrapper.find('#reset-password-confirmation-error').text()).toBe('The passwords do not match.')
     expect(reset).not.toHaveBeenCalled()
   })
 

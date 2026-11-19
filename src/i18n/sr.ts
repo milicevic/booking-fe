@@ -120,6 +120,19 @@ export default {
     pushUnsupported: 'Push obaveštenja nisu podržana u ovom pregledaču.',
   },
 
+  validation: {
+    nameRequired: 'Unesite ime i prezime.',
+    workerNameRequired: 'Unesite ime radnika.',
+    appNameRequired: 'Unesite naziv firme.',
+    emailRequired: 'Unesite email adresu.',
+    emailInvalid: 'Unesite ispravnu email adresu (npr. ime{\'@\'}primer.com).',
+    phoneRequired: 'Unesite broj telefona.',
+    phoneInvalid: 'Unesite ispravan broj telefona.',
+    passwordRequired: 'Unesite lozinku.',
+    passwordWeak: 'Lozinka mora imati najmanje 10 znakova, veliko i malo slovo i broj.',
+    passwordMismatch: 'Lozinke se ne poklapaju.',
+  },
+
   live: {
     moved: 'Salon je pomerio vašu rezervaciju na {date} u {time}.',
     status: {
@@ -432,6 +445,9 @@ export default {
     noBookings: 'Nema rezervacija za ovaj izbor.',
     filterWorker: 'Radnik',
     filterStatus: 'Status',
+    block: 'Blokiraj',
+    blockAria: 'Blokiraj kupca {name}',
+    blockConfirm: 'Blokirati kupca {name}? Njegove buduće rezervacije će biti otkazane, a sa istim telefonom ili emailom više neće moći da zakaže online. Kupca možete odblokirati u Podešavanjima.',
     cancelShort: 'Otkaži',
     status: { pending: 'Čeka potvrdu', confirmed: 'Potvrđen', cancelled: 'Otkazan', rejected: 'Odbijen' },
   },
@@ -460,6 +476,22 @@ export default {
     cutoff: 'Kupac sam pomera termin najkasnije',
     cutoffAny: 'Bilo kada pre termina',
     cutoffHours: '{n} sat pre termina | {n} sata pre termina',
+    abuse: {
+      title: 'Zaštita od zauzimanja termina',
+      text: 'Ograničava koliko termina jedan kupac (isti telefon ili email) može da zakaže, i oslobađa termine koje niste potvrdili na vreme.',
+      maxActive: 'Najviše budućih termina po kupcu',
+      maxDaily: 'Najviše novih rezervacija po kupcu za 24 h',
+      pendingExpiry: 'Nepotvrđena rezervacija ističe posle',
+      hours: 'sati',
+      zeroHint: '0 znači bez ograničenja. Nepotvrđena rezervacija u svakom slučaju ističe kad termin počne, a kupac dobija mejl da nije prihvaćena.',
+    },
+    blocked: {
+      title: 'Blokirani kupci',
+      empty: 'Nema blokiranih kupaca. Kupca blokirate sa rezervacije u „Termini“.',
+      since: 'od {date}',
+      unblock: 'Odblokiraj',
+      unblockConfirm: 'Odblokirati {name}? Ponovo će moći da zakazuje online.',
+    },
     calendarInvites: 'Kupac dobija poziv u kalendar',
     calendarInvitesHint: 'Uz potvrdu rezervacije kupac dobija dugme za Google kalendar i fajl .ics za iPhone/Outlook, sa podsetnikom 60 min pre termina. Kad se rezervacija otkaže, fajl uklanja termin iz kalendara.',
     cutoffUnit: 'sati pre termina',

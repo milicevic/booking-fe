@@ -57,4 +57,15 @@ describe('adminApi', () => {
     adminApi.updateSettings({ onboarding_completed: true, reschedule_cutoff_hours: 6 })
     expect(api.patch).toHaveBeenCalledWith('/api/client/settings', { onboarding_completed: true, reschedule_cutoff_hours: 6 })
   })
+
+  it('blocks, lists and unblocks customers', () => {
+    adminApi.blockCustomer('tok')
+    expect(api.post).toHaveBeenCalledWith('/api/bookings/tok/block-customer')
+
+    adminApi.getBlockedCustomers()
+    expect(api.get).toHaveBeenCalledWith('/api/blocked-customers')
+
+    adminApi.unblockCustomer(7)
+    expect(api.delete).toHaveBeenCalledWith('/api/blocked-customers/7')
+  })
 })

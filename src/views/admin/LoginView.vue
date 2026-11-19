@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import FieldError from '@/components/FieldError.vue'
+import { useFieldErrors } from '@/composables/useFieldErrors'
+import { email as emailRule, required } from '@/lib/validation'
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -12,6 +15,8 @@ import { Label } from '@/components/ui/label'
 import { apiErrorCode, apiErrorMessage } from '@/lib/apiError'
 
 const { t } = useI18n()
+// Naše poruke ispod polja umesto poruka pregledača (forma ima novalidate)
+const { errors: fieldErrors, check, clear } = useFieldErrors<'email' | 'password'>()
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
@@ -29,6 +34,7 @@ const resent = ref(false)
 
 async function handleLogin() {
   error.value = ''
+  if (!check({ email: email.value, password: password.value }, { email: [required('validation.emailRequired'), emailRule()], password: [required('validation.passwordRequired')] })) return
   needsVerification.value = false
   resent.value = false
   loading.value = true
@@ -60,7 +66,7 @@ async function resendVerification() {
   <AuthLayout :title="t('auth.loginTitle')" :subtitle="t('auth.loginSubtitle')">
     <Card>
       <CardContent>
-        <form @submit.prevent="handleLogin" class="space-y-5">
+        <form novalidate @submit.prevent="handleLogin" class="space-y-5">
           <GoogleButton intent="login" first />
 
           <p
@@ -94,7 +100,11 @@ async function resendVerification() {
               required
               autocomplete="email"
               :placeholder="t('auth.emailPlaceholder')"
+              :aria-invalid="!!fieldErrors.email"
+              aria-describedby="login-email-error"
+              @input="clear('email')"
             />
+            <FieldError id="login-email-error" :message="fieldErrors.email" />
           </div>
 
           <div class="grid gap-1.5">
@@ -111,7 +121,11 @@ async function resendVerification() {
               required
               autocomplete="current-password"
               placeholder="••••••••"
+              :aria-invalid="!!fieldErrors.password"
+              aria-describedby="login-password-error"
+              @input="clear('password')"
             />
+            <FieldError id="login-password-error" :message="fieldErrors.password" />
           </div>
 
           <p v-if="error" class="text-destructive text-xs">{{ error }}</p>

@@ -55,7 +55,7 @@ describe('RegisterView', () => {
     await wrapper.find('#register-app-name').setValue('Salon Ana')
     await wrapper.find('#register-name').setValue('Ana Petrović')
     await wrapper.find('input[type="email"]').setValue('ana@example.com')
-    await wrapper.find('input[type="password"]').setValue('secret123')
+    await wrapper.find('input[type="password"]').setValue('Tajna12345')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
@@ -63,7 +63,7 @@ describe('RegisterView', () => {
       app_name: 'Salon Ana',
       name: 'Ana Petrović',
       email: 'ana@example.com',
-      password: 'secret123',
+      password: 'Tajna12345',
     })
   })
 
@@ -72,7 +72,7 @@ describe('RegisterView', () => {
     await wrapper.find('#register-app-name').setValue('Salon Ana')
     await wrapper.find('#register-name').setValue('Ana Petrović')
     await wrapper.find('input[type="email"]').setValue('ana@example.com')
-    await wrapper.find('input[type="password"]').setValue('secret123')
+    await wrapper.find('input[type="password"]').setValue('Tajna12345')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 

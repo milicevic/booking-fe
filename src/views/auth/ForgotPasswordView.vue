@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import FieldError from '@/components/FieldError.vue'
+import { useFieldErrors } from '@/composables/useFieldErrors'
+import { email as emailRule, required } from '@/lib/validation'
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -10,6 +13,8 @@ import { Label } from '@/components/ui/label'
 import { apiErrorMessage } from '@/lib/apiError'
 
 const { t } = useI18n()
+// Naše poruke ispod polja umesto poruka pregledača (forma ima novalidate)
+const { errors: fieldErrors, check, fromApi, clear } = useFieldErrors<'email'>()
 const auth = useAuthStore()
 
 const email = ref('')
@@ -20,12 +25,13 @@ const error = ref('')
 // Odgovor je isti i kad nalog ne postoji, pa uvek prikazujemo istu poruku
 async function handleSubmit() {
   error.value = ''
+  if (!check({ email: email.value }, { email: [required('validation.emailRequired'), emailRule()] })) return
   loading.value = true
   try {
     await auth.requestPasswordReset(email.value)
     sent.value = true
   } catch (e) {
-    error.value = apiErrorMessage(e, t('auth.forgot.error'))
+    if (!fromApi(e, ['email'])) error.value = apiErrorMessage(e, t('auth.forgot.error'))
   } finally {
     loading.value = false
   }
@@ -43,7 +49,7 @@ async function handleSubmit() {
           </Button>
         </div>
 
-        <form v-else @submit.prevent="handleSubmit" class="space-y-5">
+        <form novalidate v-else @submit.prevent="handleSubmit" class="space-y-5">
           <div class="grid gap-1.5">
             <Label for="forgot-email">{{ t('auth.email') }}</Label>
             <Input
@@ -53,7 +59,11 @@ async function handleSubmit() {
               required
               autocomplete="email"
               :placeholder="t('auth.emailPlaceholder')"
+              :aria-invalid="!!fieldErrors.email"
+              aria-describedby="forgot-email-error"
+              @input="clear('email')"
             />
+            <FieldError id="forgot-email-error" :message="fieldErrors.email" />
           </div>
 
           <p v-if="error" class="text-destructive text-xs">{{ error }}</p>

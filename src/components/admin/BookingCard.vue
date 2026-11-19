@@ -9,10 +9,12 @@ const props = defineProps<{
   booking: Booking
   /** Vlasnik potvrđuje i odbija termine koji čekaju. */
   canModerate: boolean
+  /** Vlasnik može da blokira kupca (telefon i email) */
+  canBlock?: boolean
   busy?: boolean
 }>()
 
-const emit = defineEmits<{ confirm: []; reject: []; cancel: [] }>()
+const emit = defineEmits<{ confirm: []; reject: []; cancel: []; block: [] }>()
 const { t, locale } = useI18n()
 
 const jsLocale = computed(() => (locale.value === 'sr' ? 'sr-Latn-RS' : 'en-US'))
@@ -51,6 +53,16 @@ const inactive = computed(() => props.booking.status === 'cancelled' || props.bo
       </template>
       <Button v-else-if="!inactive" variant="outline" :disabled="busy" @click="emit('cancel')">
         {{ t('bookingsView.cancelShort') }}
+      </Button>
+      <Button
+        v-if="canBlock && (booking.customer_phone || booking.customer_email)"
+        variant="ghost"
+        class="text-gray-600 hover:text-destructive"
+        :disabled="busy"
+        :aria-label="t('bookingsView.blockAria', { name: booking.customer_name })"
+        @click="emit('block')"
+      >
+        {{ t('bookingsView.block') }}
       </Button>
     </div>
   </article>

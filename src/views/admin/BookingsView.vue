@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToast } from '@/composables/useToast'
 import { useLiveRefresh } from '@/composables/useLiveRefresh'
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -17,6 +18,7 @@ import { apiErrorMessage } from '@/lib/apiError'
 type StatusFilter = 'all' | 'pending' | 'confirmed' | 'cancelled'
 
 const { t } = useI18n()
+const toast = useToast()
 const { confirm } = useConfirm()
 const auth = useAuthStore()
 const adminContext = useAdminContextStore()
@@ -62,6 +64,16 @@ async function act(action: () => Promise<unknown>) {
   } finally {
     busy.value = false
   }
+}
+
+// Blokira kupca (telefon i email) i otkazuje mu sve buduće rezervacije; samo vlasnik
+const canBlock = computed(() => auth.client?.role === 'client')
+async function handleBlock(booking: Booking) {
+  if (!(await confirm(t('bookingsView.blockConfirm', { name: booking.customer_name })))) return
+  await act(async () => {
+    const { data } = await adminApi.blockCustomer(booking.token)
+    toast.success(data.message)
+  })
 }
 
 async function handleCancel(booking: Booking) {
@@ -117,10 +129,12 @@ const filtered = computed(() =>
           :key="booking.id"
           :booking="booking"
           :can-moderate="canModerate"
+          :can-block="canBlock"
           :busy="busy"
           @confirm="act(() => adminApi.confirmBooking(booking.token))"
           @reject="act(() => adminApi.rejectBooking(booking.token))"
           @cancel="handleCancel(booking)"
+          @block="handleBlock(booking)"
         />
 
         <div v-if="filtered.length === 0" class="rounded-xl border border-gray-100 bg-card px-6 py-8 text-center text-[15px] text-gray-600">

@@ -374,7 +374,11 @@ describe('BookingView (end-user booking flow)', () => {
     await wrapper.find('input[type="tel"]').setValue('+381601234567')
     await wrapper.find('form').trigger('submit')
 
-    expect(wrapper.text()).toContain('Enter both email and phone')
+    // Poruka stoji uz polje koje fali, ne kao poruka pregledača
+    expect(wrapper.find('#booking-email-error').text()).toBe('Enter your email')
+    expect(wrapper.find('#booking-email').attributes('aria-invalid')).toBe('true')
+    expect(wrapper.find('#booking-phone-error').exists()).toBe(false)
+    expect(wrapper.find('form').attributes('novalidate')).toBeDefined()
     expect(createBooking).not.toHaveBeenCalled()
   })
 

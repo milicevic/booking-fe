@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import FieldError from '@/components/FieldError.vue'
+import { useFieldErrors } from '@/composables/useFieldErrors'
+import { email as emailRule, required } from '@/lib/validation'
+import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
 import AdminLayout from '@/components/admin/AdminLayout.vue'
@@ -18,6 +21,7 @@ import type { Worker } from '@/api/admin'
 import { apiErrorMessage } from '@/lib/apiError'
 
 const { t } = useI18n()
+const { errors: fieldErrors, check, fromApi, clear } = useFieldErrors<'name' | 'email'>()
 const { confirm } = useConfirm()
 const adminContext = useAdminContextStore()
 
@@ -34,7 +38,6 @@ const form = ref({ name: '', email: '' })
 // Radnik čiji se opis i slika upravo uređuju
 const editingId = ref<number | null>(null)
 
-const canInvite = computed(() => form.value.name.trim() !== '' && /\S+@\S+\.\S+/.test(form.value.email))
 
 function servicesOf(worker: Worker) {
   const names = services.value.filter((s) => s.workers?.some((w) => w.id === worker.id)).map((s) => s.name)
@@ -63,17 +66,21 @@ async function load() {
 }
 
 async function invite() {
-  if (!canInvite.value) return
-  submitting.value = true
   error.value = ''
   invited.value = ''
+  const valid = check(
+    { name: form.value.name, email: form.value.email },
+    { name: [required('validation.workerNameRequired')], email: [required('validation.emailRequired'), emailRule()] },
+  )
+  if (!valid) return
+  submitting.value = true
   try {
     await adminApi.createWorker({ name: form.value.name.trim(), email: form.value.email.trim() })
     invited.value = t('workers.invited', { email: form.value.email.trim() })
     form.value = { name: '', email: '' }
     await load()
   } catch (e) {
-    error.value = apiErrorMessage(e, t('workers.addError'))
+    if (!fromApi(e, ['name', 'email'])) error.value = apiErrorMessage(e, t('workers.addError'))
   } finally {
     submitting.value = false
   }
@@ -161,16 +168,34 @@ async function handleDelete(worker: Worker) {
 
       <section class="flex flex-col gap-3.5 rounded-xl border border-gray-100 bg-card p-5">
         <h2 class="text-lg font-semibold">{{ t('workers.inviteTitle') }}</h2>
-        <form class="flex flex-wrap items-end gap-3" @submit.prevent="invite">
+        <form class="flex flex-wrap items-start gap-3" novalidate @submit.prevent="invite">
           <div class="grid min-w-0 flex-[1_1_180px] gap-1">
             <Label for="invite-name">{{ t('workers.fullName') }}</Label>
-            <Input id="invite-name" v-model="form.name" type="text" autocomplete="off" />
+            <Input
+              id="invite-name"
+              v-model="form.name"
+              type="text"
+              autocomplete="off"
+              :aria-invalid="!!fieldErrors.name"
+              aria-describedby="invite-name-error"
+              @input="clear('name')"
+            />
+            <FieldError id="invite-name-error" :message="fieldErrors.name" />
           </div>
           <div class="grid min-w-0 flex-[1_1_220px] gap-1">
             <Label for="invite-email">{{ t('booking.email') }}</Label>
-            <Input id="invite-email" v-model="form.email" type="email" autocomplete="off" />
+            <Input
+              id="invite-email"
+              v-model="form.email"
+              type="email"
+              autocomplete="off"
+              :aria-invalid="!!fieldErrors.email"
+              aria-describedby="invite-email-error"
+              @input="clear('email')"
+            />
+            <FieldError id="invite-email-error" :message="fieldErrors.email" />
           </div>
-          <Button type="submit" class="min-h-11" :disabled="!canInvite || submitting">
+          <Button type="submit" class="mt-6 min-h-11" :disabled="submitting">
             {{ submitting ? t('workers.saving') : t('workers.inviteBtn') }}
           </Button>
         </form>
